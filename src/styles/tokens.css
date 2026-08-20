@@ -1,0 +1,196 @@
+/* =========================================================
+   RELAY DESIGN SYSTEM — FOUNDATIONS
+   Tier 1: primitives (raw values, never used in components)
+   Tier 2: semantic aliases (what components consume)
+   Maps 1:1 to Figma variable collections.
+   ========================================================= */
+
+:root {
+  /* ---------- TIER 1 · COLOR PRIMITIVES ---------- */
+  /* Neutral — cool slate ramp, tuned for dense data UI */
+  --ink-0:   #ffffff;
+  --ink-25:  #fbfcfd;
+  --ink-50:  #f6f8fa;
+  --ink-100: #eef1f5;
+  --ink-150: #e4e8ee;
+  --ink-200: #d8dee7;
+  --ink-300: #bcc5d2;
+  --ink-400: #94a0b2;
+  --ink-500: #6b7889;
+  --ink-600: #515d6d;
+  --ink-700: #3c4653;
+  --ink-800: #29313c;
+  --ink-900: #181e26;
+  --ink-950: #0e1319;
+
+  /* Brand — "Signal" indigo */
+  --signal-50:  #eef0ff;
+  --signal-100: #e0e3ff;
+  --signal-200: #c6cbff;
+  --signal-300: #a3a9fb;
+  --signal-400: #8286f4;
+  --signal-500: #6366e8;
+  --signal-600: #4f4fd4;
+  --signal-700: #4040ad;
+  --signal-800: #35358a;
+  --signal-900: #2c2c6d;
+
+  /* Semantic hues */
+  --green-50:  #e8f8f0; --green-100: #cdeede; --green-500: #12a06a; --green-600: #0d8354; --green-700: #0a6642;
+  --amber-50:  #fdf3e2; --amber-100: #fae6c3; --amber-500: #d98218; --amber-600: #b26612; --amber-700: #8a4f0f;
+  --red-50:    #fdeeee; --red-100:   #fad9d9; --red-500:   #dc4040; --red-600:   #bd2c2c; --red-700:   #992222;
+  --blue-50:   #eaf3fe; --blue-100:  #d3e6fd; --blue-500:  #2b7fe0; --blue-600:  #1f66bb; --blue-700:  #1a5296;
+  --violet-50: #f4eefe; --violet-100:#e7dcfd; --violet-500:#8b5cf0; --violet-600:#7340d6;
+
+  /* ---------- TIER 1 · SPACE (4pt base) ---------- */
+  --space-0: 0px;   --space-1: 2px;  --space-2: 4px;  --space-3: 6px;
+  --space-4: 8px;   --space-5: 10px; --space-6: 12px; --space-7: 16px;
+  --space-8: 20px;  --space-9: 24px; --space-10: 32px; --space-11: 40px;
+  --space-12: 48px; --space-13: 64px;
+
+  /* ---------- TIER 1 · RADIUS ---------- */
+  --radius-xs: 3px; --radius-sm: 5px; --radius-md: 7px;
+  --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px; --radius-full: 999px;
+
+  /* ---------- TIER 1 · TYPE ---------- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-2xs: 10px;  --lh-2xs: 14px;
+  --text-xs:  11px;  --lh-xs:  16px;
+  --text-sm:  12px;  --lh-sm:  18px;
+  --text-md:  13px;  --lh-md:  20px;
+  --text-base:14px;  --lh-base:21px;
+  --text-lg:  16px;  --lh-lg:  24px;
+  --text-xl:  19px;  --lh-xl:  27px;
+  --text-2xl: 23px;  --lh-2xl: 30px;
+  --text-3xl: 30px;  --lh-3xl: 38px;
+  --text-4xl: 40px;  --lh-4xl: 46px;
+
+  --weight-regular: 400; --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
+  --tracking-tight: -0.02em; --tracking-snug: -0.011em; --tracking-normal: 0em; --tracking-wide: 0.04em;
+
+  /* ---------- TIER 1 · ELEVATION ---------- */
+  --shadow-1: 0 1px 2px rgba(14,19,25,.06), 0 0 0 1px rgba(14,19,25,.04);
+  --shadow-2: 0 2px 4px rgba(14,19,25,.05), 0 4px 12px rgba(14,19,25,.06), 0 0 0 1px rgba(14,19,25,.05);
+  --shadow-3: 0 8px 16px -4px rgba(14,19,25,.10), 0 20px 40px -8px rgba(14,19,25,.12), 0 0 0 1px rgba(14,19,25,.06);
+  --shadow-4: 0 16px 32px -8px rgba(14,19,25,.14), 0 40px 72px -12px rgba(14,19,25,.18), 0 0 0 1px rgba(14,19,25,.07);
+  --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--border-focus);
+
+  /* ---------- TIER 1 · MOTION ---------- */
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --ease-spring: cubic-bezier(.34,1.42,.64,1);
+  --dur-instant: 80ms; --dur-fast: 140ms; --dur-base: 220ms; --dur-slow: 380ms;
+
+  /* =========================================================
+     TIER 2 · SEMANTIC ALIASES (light)
+     ========================================================= */
+  --bg-canvas:      var(--ink-50);
+  --bg-surface:     var(--ink-0);
+  --bg-surface-alt: var(--ink-25);
+  --bg-sunken:      var(--ink-100);
+  --bg-inset:       var(--ink-50);
+  --bg-hover:       rgba(24,30,38,.045);
+  --bg-active:      rgba(24,30,38,.075);
+  --bg-selected:    var(--signal-50);
+  --bg-inverse:     var(--ink-900);
+  --bg-scrim:       rgba(14,19,25,.44);
+
+  --fg-primary:   var(--ink-900);
+  --fg-secondary: var(--ink-600);
+  --fg-tertiary:  var(--ink-500);
+  --fg-disabled:  var(--ink-400);
+  --fg-inverse:   var(--ink-0);
+  --fg-brand:     var(--signal-600);
+  --fg-link:      var(--signal-600);
+
+  --border-subtle:  var(--ink-150);
+  --border-default: var(--ink-200);
+  --border-strong:  var(--ink-300);
+  --border-focus:   var(--signal-500);
+
+  --accent-bg:        var(--signal-600);
+  --accent-bg-hover:  var(--signal-700);
+  --accent-bg-subtle: var(--signal-50);
+  --accent-fg:        var(--signal-700);
+  --accent-border:    var(--signal-200);
+
+  --success-bg: var(--green-50);  --success-fg: var(--green-700);  --success-border: var(--green-100);  --success-solid: var(--green-600);
+  --warning-bg: var(--amber-50);  --warning-fg: var(--amber-700);  --warning-border: var(--amber-100);  --warning-solid: var(--amber-500);
+  --danger-bg:  var(--red-50);    --danger-fg:  var(--red-700);    --danger-border:  var(--red-100);    --danger-solid:  var(--red-600);
+  --info-bg:    var(--blue-50);   --info-fg:    var(--blue-700);   --info-border:    var(--blue-100);   --info-solid:    var(--blue-500);
+  --ai-bg:      var(--violet-50); --ai-fg:      var(--violet-600); --ai-border:      var(--violet-100); --ai-solid:      var(--violet-500);
+
+  /* ---------- TIER 2 · AI CONFIDENCE SCALE ----------
+     The single most important token group in this system.
+     One hue per band, used consistently across meters,
+     field rows, transcript underlines, and queue badges. */
+  --conf-high-fg:     var(--green-700);
+  --conf-high-bg:     var(--green-50);
+  --conf-high-solid:  var(--green-500);
+  --conf-medium-fg:   var(--amber-700);
+  --conf-medium-bg:   var(--amber-50);
+  --conf-medium-solid:var(--amber-500);
+  --conf-low-fg:      var(--red-700);
+  --conf-low-bg:      var(--red-50);
+  --conf-low-solid:   var(--red-500);
+  --conf-none-fg:     var(--ink-500);
+  --conf-none-bg:     var(--ink-100);
+  --conf-none-solid:  var(--ink-400);
+
+  /* ---------- TIER 2 · COMPONENT SIZING ---------- */
+  --control-h-xs: 22px; --control-h-sm: 26px; --control-h-md: 32px; --control-h-lg: 38px;
+  --topbar-h: 52px; --pageheader-h: 60px; --nav-w: 216px; --inspector-w: 384px;
+}
+
+/* =========================================================
+   DARK THEME — only Tier 2 is redefined
+   ========================================================= */
+:root[data-theme="dark"] {
+  --bg-canvas:      var(--ink-950);
+  --bg-surface:     var(--ink-900);
+  --bg-surface-alt: #12181f;
+  --bg-sunken:      #0a0e13;
+  --bg-inset:       #12181f;
+  --bg-hover:       rgba(255,255,255,.05);
+  --bg-active:      rgba(255,255,255,.09);
+  --bg-selected:    rgba(99,102,232,.16);
+  --bg-inverse:     var(--ink-0);
+  --bg-scrim:       rgba(0,0,0,.62);
+
+  --fg-primary:   #eaeef4;
+  --fg-secondary: var(--ink-400);
+  --fg-tertiary:  var(--ink-500);
+  --fg-disabled:  var(--ink-600);
+  --fg-inverse:   var(--ink-950);
+  --fg-brand:     var(--signal-300);
+  --fg-link:      var(--signal-300);
+
+  --border-subtle:  #232b35;
+  --border-default: #2e3743;
+  --border-strong:  #3f4a58;
+  --border-focus:   var(--signal-400);
+
+  --accent-bg:        var(--signal-600);
+  --accent-bg-hover:  var(--signal-500);
+  --accent-bg-subtle: rgba(99,102,232,.16);
+  --accent-fg:        var(--signal-300);
+  --accent-border:    rgba(99,102,232,.32);
+
+  --success-bg: rgba(18,160,106,.14); --success-fg: #4ecf9a; --success-border: rgba(18,160,106,.26);
+  --warning-bg: rgba(217,130,24,.14); --warning-fg: #e8a94e; --warning-border: rgba(217,130,24,.26);
+  --danger-bg:  rgba(220,64,64,.14);  --danger-fg:  #f08585; --danger-border:  rgba(220,64,64,.26);
+  --info-bg:    rgba(43,127,224,.14); --info-fg:    #6fb0f5; --info-border:    rgba(43,127,224,.26);
+  --ai-bg:      rgba(139,92,240,.15); --ai-fg:      #b291f7; --ai-border:      rgba(139,92,240,.28);
+
+  --conf-high-fg:   #4ecf9a; --conf-high-bg:   rgba(18,160,106,.14);
+  --conf-medium-fg: #e8a94e; --conf-medium-bg: rgba(217,130,24,.14);
+  --conf-low-fg:    #f08585; --conf-low-bg:    rgba(220,64,64,.14);
+  --conf-none-fg:   var(--ink-400); --conf-none-bg: rgba(255,255,255,.06);
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05);
+  --shadow-2: 0 2px 4px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06);
+  --shadow-3: 0 8px 16px -4px rgba(0,0,0,.5), 0 20px 40px -8px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.07);
+  --shadow-4: 0 16px 32px -8px rgba(0,0,0,.6), 0 40px 72px -12px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.08);
+}
