@@ -1,4 +1,5 @@
-/* 16px grid · 1.5 stroke · round caps — one geometry rule for the whole set */
+/* 16px grid · 1.4 stroke · round caps — one geometry rule for the whole set.
+   Render at 12 / 14 / 16 / 20 only. Those are the four sizes the UI uses. */
 import type { CSSProperties } from 'react'
 
 const P: Record<string, string> = {
@@ -39,6 +40,9 @@ const P: Record<string, string> = {
   message:    'M14 10.3a1.3 1.3 0 0 1-1.3 1.4H4.7L2 14.4V3.6a1.3 1.3 0 0 1 1.3-1.3h9.4A1.3 1.3 0 0 1 14 3.6Z',
   layers:     'M8 1.6 1.7 4.8 8 8l6.3-3.2ZM1.7 11.2 8 14.4l6.3-3.2M1.7 8 8 11.2 14.3 8',
   hash:       'M2.7 6h10.6M2.7 10h10.6M6.7 2 5.3 14M10.7 2 9.3 14',
+  /* Opens the product nav below lg, where it is off-canvas. Same 3.3 rhythm as
+     `hash`, so the two read as one family when they sit in the same bar. */
+  menu:       'M2.7 4.7h10.6M2.7 8h10.6M2.7 11.3h10.6',
   eye:        'M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5ZM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
   undo:       'M2 6h7.3a3.7 3.7 0 0 1 0 7.3H6M2 6l3-3M2 6l3 3',
   plus:       'M8 3.3v9.4M3.3 8h9.4',

@@ -4,7 +4,7 @@
   height: var(--control-h-md); padding: 0 var(--space-6);
   border-radius: var(--radius-md); border: 1px solid transparent;
   font-size: var(--text-md); font-weight: var(--weight-medium); line-height: 1;
-  white-space: nowrap; user-select: none;
+  white-space: nowrap; user-select: none; position: relative;
   transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
               color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
 }
@@ -13,48 +13,97 @@
 .btn[data-size="sm"] { height: var(--control-h-sm); padding: 0 var(--space-4); font-size: var(--text-sm); gap: var(--space-2); border-radius: var(--radius-sm); }
 .btn[data-size="lg"] { height: var(--control-h-lg); padding: 0 var(--space-7); font-size: var(--text-base); }
 
-.btn[data-variant="primary"] { background: var(--accent-bg); color: #fff; box-shadow: var(--shadow-1); }
-.btn[data-variant="primary"]:hover:not(:disabled) { background: var(--accent-bg-hover); }
-
+.btn[data-variant="primary"] { background: var(--accent-bg); color: var(--fg-on-accent); box-shadow: var(--shadow-1); }
 .btn[data-variant="secondary"] { background: var(--bg-surface); color: var(--fg-primary); border-color: var(--border-default); box-shadow: var(--shadow-1); }
-.btn[data-variant="secondary"]:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-strong); }
-
 .btn[data-variant="ghost"] { background: transparent; color: var(--fg-secondary); }
-.btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg-primary); }
-
-.btn[data-variant="danger"] { background: var(--danger-solid); color: #fff; }
-.btn[data-variant="danger"]:hover:not(:disabled) { filter: brightness(.93); }
-
+.btn[data-variant="danger"] { background: var(--danger-solid); color: var(--fg-on-accent); }
 .btn[data-variant="dangerSubtle"] { background: var(--danger-bg); color: var(--danger-fg); border-color: var(--danger-border); }
-.btn[data-variant="dangerSubtle"]:hover:not(:disabled) { border-color: var(--danger-solid); }
-
 .btn[data-variant="successSubtle"] { background: var(--success-bg); color: var(--success-fg); border-color: var(--success-border); }
-.btn[data-variant="successSubtle"]:hover:not(:disabled) { border-color: var(--success-solid); }
+
+/* Hover states are gated behind an actual hovering pointer. On touch they fire
+   on tap and then STICK until you tap elsewhere, which reads as a selection
+   that is not there. Every one of them is decorative — nothing below reveals an
+   action or changes a layout, so a touch device loses nothing by not having
+   them. (The one affordance that WAS hover-only, the field row's edit button,
+   is handled at FIELD ROW.) */
+@media (hover: hover) {
+  .btn[data-variant="primary"]:hover:not(:disabled) { background: var(--accent-bg-hover); }
+  .btn[data-variant="secondary"]:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-strong); }
+  .btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg-primary); }
+  .btn[data-variant="danger"]:hover:not(:disabled) { filter: brightness(.93); }
+  .btn[data-variant="dangerSubtle"]:hover:not(:disabled) { border-color: var(--danger-solid); }
+  .btn[data-variant="successSubtle"]:hover:not(:disabled) { border-color: var(--success-solid); }
+}
 
 .btn[data-loading="true"] { pointer-events: none; }
 .btn .spin { animation: spin .7s linear infinite; }
 
 .iconbtn {
+  position: relative;
   display: inline-flex; align-items: center; justify-content: center;
   width: var(--control-h-md); height: var(--control-h-md);
   border-radius: var(--radius-md); color: var(--fg-secondary);
   border: 1px solid transparent;
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.iconbtn:hover { background: var(--bg-hover); color: var(--fg-primary); }
+@media (hover: hover) { .iconbtn:hover { background: var(--bg-hover); color: var(--fg-primary); } }
 .iconbtn[data-size="sm"] { width: var(--control-h-sm); height: var(--control-h-sm); border-radius: var(--radius-sm); }
 .iconbtn[data-active="true"] { background: var(--accent-bg-subtle); color: var(--accent-fg); }
 .iconbtn[data-bordered="true"] { border-color: var(--border-default); background: var(--bg-surface); }
 
+/* =========================================================
+   TOUCH TARGETS
+   =========================================================
+   Every control below is drawn between 18 and 34px because a dense console
+   earns its density. On a coarse pointer each one grows an INVISIBLE 44×44
+   centred hit area instead — the pixels you aim at change, the pixels you see
+   do not. `inset` is not used because these must overhang their own box.
+
+   ::before throughout: ::after is already spoken for on .switch, .rail-item
+   and .coach-mark, and one pseudo per job is easier to keep straight than
+   remembering which element uses which. */
+@media (pointer: coarse) {
+  /* Square growth — controls that stand alone and are small in both axes. */
+  /* `position: relative` is not optional here. Without it the 44px box
+     resolves against whatever ancestor happens to be positioned, so every
+     checkbox in a table pinned its tap target to the same place — several rows
+     away from the box you were aiming at. */
+  .iconbtn, .checkbox, .switch, .rail-item, .coach-mark { position: relative; }
+  .iconbtn::before, .checkbox::before, .switch::before,
+  .rail-item::before, .coach-mark::before {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    width: var(--touch-min); height: var(--touch-min);
+    transform: translate(-50%, -50%);
+  }
+  /* Height-only growth — controls already wide enough, where a square would
+     overhang a neighbour sideways and steal its taps.
+     `.btn` unqualified, not `.btn[data-size="sm"]`: the default button is 32px
+     and the large one 38px, so BOTH were under the floor. Every real action in
+     this prototype — Approve, Take over, Open handover, and every chapter's
+     way out — is a default-size button. */
+  .btn::before, .segmented button::before,
+  .toast button::before, .chip::before, .fab-choice::before {
+    content: ''; position: absolute; top: 50%; left: 0;
+    width: 100%; min-width: var(--touch-min); height: var(--touch-min);
+    transform: translateY(-50%);
+  }
+  .segmented button, .toast button { position: relative; min-width: var(--touch-min); }
+  .checkbox, .chip, .fab-choice { position: relative; }
+}
+/* NOTE: the matching gap widening for .chips and .rail — where these expanded
+   areas would otherwise collide with a neighbour's — lives in app.css beside
+   those components' own rules, because app.css loads after this file and would
+   otherwise win the cascade with its base gap. */
+
 /* ===================== BADGE ===================== */
 .badge {
   display: inline-flex; align-items: center; gap: var(--space-2);
-  height: 20px; padding: 0 var(--space-3);
+  height: var(--control-h-xs); padding: 0 var(--space-3);
   border-radius: var(--radius-sm); border: 1px solid transparent;
   font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: 1;
   white-space: nowrap;
 }
-.badge[data-size="lg"] { height: 24px; padding: 0 var(--space-4); font-size: var(--text-sm); }
+.badge[data-size="lg"] { height: var(--control-h-sm); padding: 0 var(--space-4); font-size: var(--text-sm); }
 .badge[data-tone="neutral"] { background: var(--bg-sunken); color: var(--fg-secondary); border-color: var(--border-subtle); }
 .badge[data-tone="accent"]  { background: var(--accent-bg-subtle); color: var(--accent-fg); border-color: var(--accent-border); }
 .badge[data-tone="success"] { background: var(--success-bg); color: var(--success-fg); border-color: var(--success-border); }
@@ -62,19 +111,22 @@
 .badge[data-tone="danger"]  { background: var(--danger-bg);  color: var(--danger-fg);  border-color: var(--danger-border); }
 .badge[data-tone="info"]    { background: var(--info-bg);    color: var(--info-fg);    border-color: var(--info-border); }
 .badge[data-tone="ai"]      { background: var(--ai-bg);      color: var(--ai-fg);      border-color: var(--ai-border); }
-.badge[data-solid="true"][data-tone="danger"]  { background: var(--danger-solid); color:#fff; border-color: transparent; }
-.badge[data-solid="true"][data-tone="success"] { background: var(--success-solid); color:#fff; border-color: transparent; }
-.badge[data-solid="true"][data-tone="accent"]  { background: var(--accent-bg); color:#fff; border-color: transparent; }
+.badge[data-solid="true"][data-tone="danger"]  { background: var(--danger-solid); color: var(--fg-on-accent); border-color: transparent; }
+.badge[data-solid="true"][data-tone="success"] { background: var(--success-solid); color: var(--fg-on-accent); border-color: transparent; }
+.badge[data-solid="true"][data-tone="accent"]  { background: var(--accent-bg); color: var(--fg-on-accent); border-color: transparent; }
 
-.dot { width: 6px; height: 6px; border-radius: var(--radius-full); flex: none; }
+.dot { width: var(--dot-sz); height: var(--dot-sz); border-radius: var(--radius-full); flex: none; }
 .dot[data-live="true"] { animation: pulse-soft 1.8s var(--ease-in-out) infinite; }
 
 /* ===================== CONFIDENCE ===================== */
 .conf-pill {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  height: 18px; padding: 0 var(--space-3) 0 var(--space-2);
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  /* Asymmetric on purpose: the meter is a block of solid bars and reads as
+     heavier than the number, so it sits a little closer to the edge than the
+     text does. Equal padding here looks lopsided the other way. */
+  height: var(--control-h-xs); padding: 0 var(--space-4) 0 var(--space-3);
   border-radius: var(--radius-full);
-  font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: 1;
   letter-spacing: var(--tracking-wide); text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
@@ -83,8 +135,12 @@
 .conf-pill[data-band="low"]    { background: var(--conf-low-bg);    color: var(--conf-low-fg); }
 .conf-pill[data-band="none"]   { background: var(--conf-none-bg);   color: var(--conf-none-fg); }
 
-.conf-meter { display: flex; gap: 2px; align-items: center; }
-.conf-meter i { display: block; width: 4px; height: 10px; border-radius: 1px; background: var(--conf-none-bg); }
+.conf-meter { display: flex; gap: var(--space-1); align-items: center; }
+.conf-meter i { display: block; width: var(--space-2); height: var(--space-5); border-radius: var(--radius-2xs); background: var(--conf-none-track); }
+/* Track first, then the filled override — same hue family, two weights. */
+.conf-meter[data-band="high"] i      { background: var(--conf-high-track); }
+.conf-meter[data-band="medium"] i    { background: var(--conf-medium-track); }
+.conf-meter[data-band="low"] i       { background: var(--conf-low-track); }
 .conf-meter[data-band="high"] i.on   { background: var(--conf-high-solid); }
 .conf-meter[data-band="medium"] i.on { background: var(--conf-medium-solid); }
 .conf-meter[data-band="low"] i.on    { background: var(--conf-low-solid); }
@@ -98,41 +154,54 @@
 }
 .card-header {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-5) var(--space-7);
   border-bottom: 1px solid var(--border-subtle);
 }
-.card-title { font-size: var(--text-md); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
-.card-body { padding: var(--space-6); }
+.card-title { font-size: var(--text-md); line-height: var(--lh-md); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
+.card-body { padding: var(--space-7); }
 
 .section-label {
-  font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+  font-size: var(--text-2xs); line-height: var(--lh-2xs); font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--fg-tertiary);
 }
 
 .divider { height: 1px; background: var(--border-subtle); }
 
 /* ===================== FIELD ROW ===================== */
+/* minmax(0, 1fr) rather than 1fr on the value: a bare `1fr` floors at the
+   value's min-content width, and when the row is narrow — the inspector at
+   1280, the specimen card on a phone — that floor came out of the `auto`
+   track, clipping 9px off the confidence pill that is the whole point of the
+   row. The value wraps instead. */
 .fieldrow {
-  display: grid; grid-template-columns: 116px 1fr auto; align-items: start; gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
+  display: grid; grid-template-columns: var(--fieldrow-label-w) minmax(0, 1fr) auto; align-items: start; gap: var(--space-4);
+  padding: var(--space-4) var(--space-7);
   border-bottom: 1px solid var(--border-subtle);
   transition: background var(--dur-fast) var(--ease-out);
   position: relative;
 }
-.fieldrow:hover { background: var(--bg-surface-alt); }
+@media (hover: hover) { .fieldrow:hover { background: var(--bg-surface-alt); } }
 .fieldrow:last-child { border-bottom: none; }
-.fieldrow[data-flag="true"]::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--conf-low-solid);
+/* A flagged row is marked by its LABEL taking the band colour, not by a bar
+   down the side. The pill already carries the number; a coloured word is the
+   quieter signal and it survives being read in a narrow column. */
+.fieldrow[data-flag="true"]   .fieldrow-label { color: var(--conf-low-fg); }
+.fieldrow[data-flag="medium"] .fieldrow-label { color: var(--conf-medium-fg); }
+/* 1px is an optical nudge: drops the 12px label onto the 13px value baseline. */
+.fieldrow-label { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary); padding-top: 1px; }
+.fieldrow-value { font-size: var(--text-md); line-height: var(--lh-md); color: var(--fg-primary); font-weight: var(--weight-medium); min-width: 0; }
+/* THE hover-only affordance in this system: "Change it" is the whole point of
+   the inspector — fixing beats rejecting — and on a touch device there is no
+   hover to reveal it with. So on a coarse pointer it is simply always there.
+   The row is quieter on a desktop and honest on a phone; it is never hidden
+   from someone who cannot summon it. */
+.fieldrow-actions { display: flex; gap: var(--space-1); opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+@media (hover: hover) {
+  .fieldrow-actions { opacity: 0; }
+  .fieldrow:hover .fieldrow-actions, .fieldrow:focus-within .fieldrow-actions { opacity: 1; }
 }
-.fieldrow[data-flag="medium"]::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--conf-medium-solid);
-}
-.fieldrow-label { font-size: var(--text-sm); color: var(--fg-tertiary); padding-top: 1px; }
-.fieldrow-value { font-size: var(--text-md); color: var(--fg-primary); font-weight: var(--weight-medium); min-width: 0; }
-.fieldrow-actions { display: flex; gap: var(--space-1); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
-.fieldrow:hover .fieldrow-actions, .fieldrow:focus-within .fieldrow-actions { opacity: 1; }
 .fieldrow-cite {
-  margin-top: var(--space-2); font-size: var(--text-xs); color: var(--fg-tertiary);
+  margin-top: var(--space-2); font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--fg-tertiary);
   display: flex; align-items: center; gap: var(--space-2);
 }
 
@@ -145,65 +214,131 @@
   transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 .input::placeholder { color: var(--fg-disabled); }
-.input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-bg-subtle); }
+/* The input owns its focus look: the border goes accent and a soft halo sits
+   outside it. The GLOBAL :focus-visible outline then landed on top of that at a
+   2px offset — border, halo, and a hard ring with a gap, three edges deep. The
+   control already shows focus more clearly than the outline does, so the
+   outline stands down here (and only here). */
+.input:focus { border-color: var(--border-focus); box-shadow: var(--ring-accent); }
+.input:focus, .input:focus-visible { outline: none; }
 .input[data-invalid="true"] { border-color: var(--danger-solid); }
 textarea.input { height: auto; padding: var(--space-4) var(--space-5); line-height: var(--lh-md); resize: vertical; }
 
 .searchfield { position: relative; display: flex; align-items: center; }
 .searchfield svg { position: absolute; left: var(--space-5); color: var(--fg-tertiary); pointer-events: none; }
-.searchfield .input { padding-left: 32px; }
+/* icon sits at --space-5, is 14px wide, then --space-4 of air before the text. */
+.searchfield .input { padding-left: calc(var(--space-5) + 14px + var(--space-4)); }
 
 /* ===================== SEGMENTED ===================== */
 .segmented {
-  display: inline-flex; padding: 2px; gap: 2px;
+  display: inline-flex; padding: var(--space-1); gap: var(--space-1);
   background: var(--bg-sunken); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
 }
 .segmented button {
-  height: 24px; padding: 0 var(--space-5); border-radius: var(--radius-sm);
-  font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--fg-tertiary);
-  transition: all var(--dur-fast) var(--ease-out);
+  height: var(--control-h-sm); padding: 0 var(--space-5); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); line-height: var(--lh-sm); font-weight: var(--weight-medium); color: var(--fg-tertiary);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
-.segmented button:hover { color: var(--fg-primary); }
+@media (hover: hover) { .segmented button:hover { color: var(--fg-primary); } }
 .segmented button[aria-pressed="true"] { background: var(--bg-surface); color: var(--fg-primary); box-shadow: var(--shadow-1); }
 
 /* ===================== SWITCH ===================== */
 .switch {
-  position: relative; width: 30px; height: 18px; border-radius: var(--radius-full);
+  position: relative; width: var(--switch-w); height: var(--control-h-2xs); border-radius: var(--radius-full);
   background: var(--border-strong); transition: background var(--dur-base) var(--ease-out); flex: none;
 }
 .switch::after {
-  content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
-  border-radius: var(--radius-full); background: #fff; box-shadow: var(--shadow-1);
+  content: ''; position: absolute; top: var(--space-1); left: var(--space-1);
+  width: calc(var(--control-h-2xs) - var(--space-2)); height: calc(var(--control-h-2xs) - var(--space-2));
+  border-radius: var(--radius-full); background: var(--fg-on-accent); box-shadow: var(--shadow-1);
   transition: transform var(--dur-base) var(--ease-spring);
 }
 .switch[aria-checked="true"] { background: var(--accent-bg); }
-.switch[aria-checked="true"]::after { transform: translateX(12px); }
+.switch[aria-checked="true"]::after { transform: translateX(calc(var(--switch-w) - var(--control-h-2xs))); }
 
-/* ===================== TOOLTIP ===================== */
-.tip { position: relative; display: inline-flex; }
+/* ===================== TOOLTIP =====================
+   Two things had to change for touch. First the tip can no longer be a single
+   nowrap line — at 390 the longer ones ("Model confidence · medium", a
+   transcript's misheard-phrase note) ran off both edges of the screen. It now
+   sizes to its content and wraps once it would leave the viewport.
+
+   Second, hover is not the only way in. `:focus-within` fires when the wrapped
+   control is TAPPED, so every tooltip on a button is reachable on a phone.
+   That only covers the tips that wrap a CONTROL, though — a tip around a plain
+   div has nothing for focus to land on, and `hover: hover` is false on a
+   phone, so those tips could not be summoned at all. Every one of them is
+   given a tabindex in its component instead: tabIndex={0} for the transcript's
+   dashed underline (one element, worth a tab stop), tabIndex={-1} for the
+   System chapter's ~100 colour, radius, shadow and icon specimens (tappable,
+   but not a hundred stops between the reader and the next chapter).
+   No tip is knowledge you can only get with a mouse. */
+/* --tip-in names the keyframe the shown state plays, so a placement override
+   can change the direction the tip arrives from without re-stating the whole
+   animation or fighting :hover on specificity. */
+.tip { position: relative; display: inline-flex; --tip-in: tip-in; }
 .tip::after {
-  content: attr(data-tip);
-  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(3px);
+  /* `display: none` rather than `opacity: 0`, and this is load-bearing: an
+     absolutely positioned box still counts toward an ancestor's SCROLLABLE
+     overflow even at zero opacity. A 130px tooltip centred on a 26px button at
+     the right edge of the transcript put a permanent horizontal scrollbar under
+     a column that has nothing to scroll sideways to. Hidden means gone.
+     The fade survives as an animation on the shown state instead. */
+  content: attr(data-tip); display: none;
+  position: absolute; bottom: calc(100% + var(--space-3)); left: 50%;
+  /* `translate`, not `transform`. Centring is the tip's RESTING position and
+     the fade is an animation on transform; kept on separate properties an
+     alignment modifier can move the box without the keyframes knowing, and the
+     keyframes can move it without un-centring it. */
+  translate: -50% 0;
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm);
-  background: var(--ink-900); color: var(--ink-0);
-  font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: 16px; white-space: nowrap;
-  opacity: 0; pointer-events: none; z-index: 60;
-  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+  background: var(--bg-inverse); color: var(--fg-inverse);
+  font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: var(--lh-xs);
+  /* Sizes to its content, then wraps rather than running off a phone. */
+  width: max-content; max-width: min(78vw, 320px); text-align: center;
+  pointer-events: none; z-index: 60;
   box-shadow: var(--shadow-2);
 }
-.tip:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (hover: hover) {
+  .tip:hover::after { display: block; animation: var(--tip-in) var(--dur-fast) var(--ease-out); }
+}
+/* Fires when the wrapped control is TAPPED, which is the whole touch story for
+   tooltips: nothing in here is knowledge only a mouse can reach. */
+.tip:focus-within::after { display: block; animation: var(--tip-in) var(--dur-fast) var(--ease-out); }
+
+/* ---------- placement ----------
+   A tip is centred over its control, and half of it is therefore outside any
+   box whose edge the control is sitting on. Three rules cover every such edge
+   in this app, and two of the three are STRUCTURAL — they key off where the
+   control already is, so no call site has to remember them:
+
+     · the field row's last column is flush against the row's right padding, so
+       the pill and "Change it" tips it holds open leftward. Without this they
+       were cut by the state matrix's own `overflow: hidden` on five tiles.
+     · a top bar has nothing above it but the edge of the window, so its tips
+       open downward instead — that rule lives in app.css beside those bars.
+     · .tip-end / .tip-start are the ones that must be asked for: "this control
+       is the last thing before a scroll pane's gutter" is not something a
+       selector can know. */
+.fieldrow .tip::after, .tip-end::after { left: auto; right: 0; translate: none; }
+.tip-start::after { left: 0; translate: none; }
 
 .kbd {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--control-h-2xs); height: var(--control-h-2xs); padding: 0 var(--space-2);
   border-radius: var(--radius-xs); border: 1px solid var(--border-default); border-bottom-width: 2px;
   background: var(--bg-surface); color: var(--fg-tertiary);
-  font-size: var(--text-2xs); font-weight: var(--weight-semibold); font-family: var(--font-sans);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: 1; font-family: var(--font-sans);
 }
 
 /* ===================== SKELETON / SPINNER ===================== */
+/* Built from the border ramp, not --bg-sunken. Sunken sits BELOW the canvas in
+   dark (#0a0e13 against #0e1319 — 1.04:1), so the streaming rows in the
+   transcript were invisible there. Borders are the one ramp that reads against
+   every ground: canvas, surface and inset alike. */
 .skel {
   border-radius: var(--radius-sm);
-  background: linear-gradient(90deg, var(--bg-sunken) 25%, var(--bg-hover) 37%, var(--bg-sunken) 63%);
+  background: linear-gradient(90deg, var(--border-subtle) 25%, var(--border-default) 37%, var(--border-subtle) 63%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -211,27 +346,28 @@ textarea.input { height: auto; padding: var(--space-4) var(--space-5); line-heig
 /* ===================== EMPTY STATE ===================== */
 .empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--space-4); padding: var(--space-12) var(--space-8); text-align: center;
+  gap: var(--space-4); padding: var(--space-10) var(--space-7); text-align: center;
 }
+@media (min-width: 768px) { .empty { padding: var(--space-12) var(--space-8); } }  /* --bp-md */
 .empty-glyph {
-  width: 40px; height: 40px; border-radius: var(--radius-lg);
+  width: var(--space-11); height: var(--space-11); border-radius: var(--radius-lg);
   display: grid; place-items: center;
   background: var(--bg-sunken); color: var(--fg-tertiary); border: 1px solid var(--border-subtle);
 }
-.empty-title { font-size: var(--text-base); font-weight: var(--weight-semibold); }
-.empty-body { font-size: var(--text-md); color: var(--fg-tertiary); max-width: 34ch; }
+.empty-title { font-size: var(--text-base); line-height: var(--lh-base); font-weight: var(--weight-semibold); }
+.empty-body { font-size: var(--text-md); line-height: var(--lh-md); color: var(--fg-tertiary); max-width: 34ch; }
 
 /* ===================== AVATAR ===================== */
 .avatar {
-  width: 26px; height: 26px; border-radius: var(--radius-full);
+  width: var(--control-h-sm); height: var(--control-h-sm); border-radius: var(--radius-full);
   display: grid; place-items: center; flex: none;
-  font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0;
+  font-size: var(--text-xs); line-height: 1; font-weight: var(--weight-semibold); letter-spacing: var(--tracking-normal);
   background: var(--bg-sunken); color: var(--fg-secondary); border: 1px solid var(--border-subtle);
 }
 .avatar[data-kind="ai"] { background: var(--ai-bg); color: var(--ai-fg); border-color: var(--ai-border); }
 .avatar[data-kind="human"] { background: var(--info-bg); color: var(--info-fg); border-color: var(--info-border); }
-.avatar[data-size="lg"] { width: 34px; height: 34px; font-size: var(--text-md); }
-.avatar[data-size="sm"] { width: 20px; height: 20px; font-size: var(--text-2xs); }
+.avatar[data-size="lg"] { width: var(--control-h-md); height: var(--control-h-md); font-size: var(--text-md); }
+.avatar[data-size="sm"] { width: var(--control-h-xs); height: var(--control-h-xs); font-size: var(--text-2xs); }
 
 /* ===================== OVERLAYS ===================== */
 .scrim {
@@ -239,40 +375,90 @@ textarea.input { height: auto; padding: var(--space-4) var(--space-5); line-heig
   animation: fade-up var(--dur-base) var(--ease-out);
   backdrop-filter: blur(1.5px);
 }
+/* The approval drawer. On a desktop it slides in from the right so the
+   transcript — the proof you are approving against — stays on screen; that is
+   the trade-off the Trade-offs chapter is about, and it survives here.
+   On a phone nothing can sit BESIDE anything, so it takes the shape that keeps
+   the same promise a phone can keep: a bottom sheet that stops short of the top
+   so the call you are approving is still visibly behind it. */
 .drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 468px; z-index: 90;
-  background: var(--bg-surface); border-left: 1px solid var(--border-default);
+  position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 90;
+  width: auto; height: 92dvh; max-height: 92dvh;
+  background: var(--bg-surface); border-top: 1px solid var(--border-default);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: var(--shadow-4); display: flex; flex-direction: column;
-  animation: slide-in-right var(--dur-base) var(--ease-out);
+  animation: slide-in-up var(--dur-base) var(--ease-out);
+}
+/* The grab handle that says "this sheet moves". Sheet-only, so it is drawn
+   here and removed with the sheet shape at md. */
+.drawer::before {
+  content: ''; position: absolute; top: var(--space-3); left: 50%; transform: translateX(-50%);
+  width: var(--space-11); height: var(--space-2); border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+.drawer .overlay-header { padding-top: var(--space-8); }
+@media (min-width: 768px) {  /* --bp-md */
+  .drawer {
+    top: 0; left: auto; right: 0; bottom: 0;
+    width: min(var(--drawer-w), 86vw); height: auto; max-height: none;
+    border-top: none; border-left: 1px solid var(--border-default); border-radius: 0;
+    animation: slide-in-right var(--dur-base) var(--ease-out);
+  }
+  .drawer::before { display: none; }
+  .drawer .overlay-header { padding-top: var(--space-6); }
 }
 .modal {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 90;
-  width: 460px; background: var(--bg-surface); border-radius: var(--radius-xl);
+  width: min(var(--modal-w), calc(100vw - var(--space-7) * 2));
+  max-height: calc(100dvh - var(--space-11)); overflow-y: auto;
+  background: var(--bg-surface); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-4); animation: fade-up var(--dur-base) var(--ease-out);
 }
 .overlay-header {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+  display: flex; align-items: flex-start; gap: var(--space-4);
   padding: var(--space-6) var(--space-7); border-bottom: 1px solid var(--border-subtle);
 }
+.overlay-header > :first-child { flex: 1; min-width: 0; }
 .overlay-footer {
   display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4);
+  flex-wrap: wrap;
   padding: var(--space-6) var(--space-7); border-top: 1px solid var(--border-subtle);
   background: var(--bg-surface-alt); border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
 }
 
-/* ===================== TOAST ===================== */
-.toast-layer { position: fixed; bottom: var(--space-8); left: 50%; transform: translateX(-50%); z-index: 120; display: flex; flex-direction: column; gap: var(--space-3); align-items: center; }
+/* ===================== TOAST =====================
+   Clears the console's action bar and the home indicator below it, so an
+   "Approved · Undo" never lands on top of the button that produced it. */
+.toast-layer {
+  position: fixed; z-index: 120;
+  left: var(--space-6); right: var(--space-6);
+  bottom: calc(var(--space-12) + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: var(--space-3); align-items: stretch;
+}
+@media (min-width: 768px) {  /* --bp-md */
+  .toast-layer {
+    left: 50%; right: auto; transform: translateX(-50%);
+    bottom: var(--space-8); align-items: center;
+    max-width: calc(100vw - var(--space-9) * 2);
+  }
+}
 .toast {
   display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-4) var(--space-5) var(--space-4) var(--space-5);
-  background: var(--ink-900); color: var(--ink-0);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-inverse); color: var(--fg-inverse);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-3);
-  font-size: var(--text-md); animation: fade-up var(--dur-base) var(--ease-out);
+  font-size: var(--text-md); line-height: var(--lh-md); animation: fade-up var(--dur-base) var(--ease-out);
 }
-.toast button { color: var(--signal-300); font-weight: var(--weight-medium); font-size: var(--text-md); }
+.toast button { color: var(--fg-link-inverse); font-weight: var(--weight-medium); font-size: var(--text-md); white-space: nowrap; }
 
 /* ===================== UTIL ===================== */
 .row { display: flex; align-items: center; }
 .col { display: flex; flex-direction: column; }
-.grow { flex: 1; min-width: 0; }
+/* min-height alongside min-width: .grow is the scroll body of the approval
+   sheet as well as a spacer in a hundred rows, and as a bottom sheet that body
+   is in a COLUMN — where the default min-height:auto refuses to shrink below
+   its content and pushes the footer, with the Approve button on it, off the
+   bottom of the screen. Harmless in a row. */
+.grow { flex: 1; min-width: 0; min-height: 0; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

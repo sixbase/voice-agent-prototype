@@ -6,10 +6,10 @@ export type { IconName } from './Icon'
 /* ---------------- Button ---------------- */
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSubtle' | 'successSubtle'
 export function Button({
-  children, variant = 'secondary', size = 'md', icon, iconEnd, loading, ...rest
+  children, variant = 'secondary', size = 'md', icon, iconEnd, loading, className = '', ...rest
 }: { children?: ReactNode; variant?: Variant; size?: 'sm' | 'md' | 'lg'; icon?: IconName; iconEnd?: IconName; loading?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button className="btn" data-variant={variant} data-size={size} data-loading={loading} {...rest}>
+    <button className={`btn ${className}`} data-variant={variant} data-size={size} data-loading={loading} {...rest}>
       {loading ? <Icon name="refresh" size={size === 'sm' ? 12 : 14} className="spin" /> : icon && <Icon name={icon} size={size === 'sm' ? 12 : 14} />}
       {children}
       {iconEnd && <Icon name={iconEnd} size={size === 'sm' ? 12 : 14} />}
@@ -17,13 +17,18 @@ export function Button({
   )
 }
 
-export function IconButton({ icon, size = 'md', active, bordered, tip, ...rest }: { icon: IconName; size?: 'sm' | 'md'; active?: boolean; bordered?: boolean; tip?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+/* `className` lands on the OUTERMOST node, which is the tooltip wrapper when
+   there is a tip. Responsive visibility classes are the reason: hiding the
+   button but leaving its wrapper behind still leaves a flex gap in the bar. */
+export function IconButton({ icon, size = 'md', active, bordered, tip, className = '', ...rest }: { icon: IconName; size?: 'sm' | 'md'; active?: boolean; bordered?: boolean; tip?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
   const btn = (
     <button className="iconbtn" data-size={size} data-active={active} data-bordered={bordered} aria-label={tip} {...rest}>
-      <Icon name={icon} size={size === 'sm' ? 13 : 15} />
+      <Icon name={icon} size={size === 'sm' ? 14 : 16} />
     </button>
   )
-  return tip ? <span className="tip" data-tip={tip}>{btn}</span> : btn
+  return tip
+    ? <span className={`tip ${className}`} data-tip={tip}>{btn}</span>
+    : className ? <span className={className} style={{ display: 'inline-flex' }}>{btn}</span> : btn
 }
 
 /* ---------------- Badge ---------------- */
@@ -32,7 +37,7 @@ export function Badge({ children, tone = 'neutral', icon, dot, solid, size, live
   return (
     <span className="badge" data-tone={tone} data-solid={solid} data-size={size}>
       {dot && <span className="dot" data-live={live} style={{ background: 'currentColor' }} />}
-      {icon && <Icon name={icon} size={11} />}
+      {icon && <Icon name={icon} size={12} />}
       {children}
     </span>
   )
@@ -43,11 +48,17 @@ export type Band = 'high' | 'medium' | 'low' | 'none'
 export const band = (score: number | null): Band =>
   score === null ? 'none' : score >= 0.85 ? 'high' : score >= 0.6 ? 'medium' : 'low'
 
-export function ConfidencePill({ score, label }: { score: number | null; label?: string }) {
+/* `className` lands on the tooltip wrapper, which is what it is for: a pill
+   pushed to the end of a row needs `tip-end` so its tip opens inward. */
+/* Plain words, not band names. "medium confidence" is a thing a model says;
+   "fairly sure" is a thing a person says. */
+const WORD = { high: 'very sure', medium: 'fairly sure', low: 'not sure', none: 'not asked' } as const
+
+export function ConfidencePill({ score, label, className = '' }: { score: number | null; label?: string; className?: string }) {
   const b = band(score)
-  const text = score === null ? 'no signal' : `${Math.round(score * 100)}%`
+  const text = score === null ? 'never asked' : `${Math.round(score * 100)}%`
   return (
-    <span className="tip" data-tip={label ?? `Model confidence · ${b}`}>
+    <span className={`tip ${className}`} data-tip={label ?? (score === null ? 'The AI never tried this one' : `The AI is ${WORD[b]} · ${Math.round(score * 100)}%`)}>
       <span className="conf-pill" data-band={b}>
         <ConfidenceMeter score={score} />
         {text}
@@ -74,10 +85,10 @@ export function CardHeader({ title, sub, actions, icon }: { title: ReactNode; su
   return (
     <div className="card-header">
       <div className="row" style={{ gap: 'var(--space-4)', minWidth: 0 }}>
-        {icon && <Icon name={icon} size={14} style={{ color: 'var(--fg-tertiary)' }} />}
+        {icon && <Icon name={icon} size={16} style={{ color: 'var(--fg-tertiary)' }} />}
         <div style={{ minWidth: 0 }}>
           <div className="card-title truncate">{title}</div>
-          {sub && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-tertiary)', marginTop: 1 }}>{sub}</div>}
+          {sub && <div style={{ fontSize: 'var(--text-sm)', lineHeight: 'var(--lh-sm)', color: 'var(--fg-tertiary)', marginTop: 1 }}>{sub}</div>}
         </div>
       </div>
       {actions && <div className="row" style={{ gap: 'var(--space-2)' }}>{actions}</div>}
@@ -87,7 +98,8 @@ export function CardHeader({ title, sub, actions, icon }: { title: ReactNode; su
 export function SectionLabel({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return <div className="section-label" style={style}>{children}</div>
 }
-export const Divider = ({ style }: { style?: CSSProperties }) => <div className="divider" style={style} />
+export const Divider = ({ style, className = '' }: { style?: CSSProperties; className?: string }) =>
+  <div className={`divider ${className}`} style={style} />
 
 /* ---------------- Field row ---------------- */
 export function FieldRow({ label, value, score, cite, actions, flag }: {
@@ -100,11 +112,12 @@ export function FieldRow({ label, value, score, cite, actions, flag }: {
         {value}
         {cite && (
           <div className="fieldrow-cite">
-            <Icon name="message" size={11} />
+            <Icon name="message" size={12} />
             <span className="truncate" style={{ fontStyle: 'italic' }}>“{cite}”</span>
           </div>
         )}
       </div>
+      {/* 1px optical nudge — sits the pill on the value's cap height. */}
       <div className="row" style={{ gap: 'var(--space-3)', paddingTop: 1 }}>
         {score !== undefined && <ConfidencePill score={score} />}
         {actions && <div className="fieldrow-actions">{actions}</div>}
@@ -117,7 +130,7 @@ export function FieldRow({ label, value, score, cite, actions, flag }: {
 export function SearchField({ placeholder = 'Search', style }: { placeholder?: string; style?: CSSProperties }) {
   return (
     <div className="searchfield" style={style}>
-      <Icon name="search" size={13} />
+      <Icon name="search" size={14} />
       <input className="input" placeholder={placeholder} />
     </div>
   )
@@ -137,13 +150,13 @@ export function Switch({ checked, onChange }: { checked: boolean; onChange: (v: 
 
 /* ---------------- Feedback ---------------- */
 export const Kbd = ({ children }: { children: ReactNode }) => <span className="kbd">{children}</span>
-export const Skeleton = ({ w = '100%', h = 12, r }: { w?: number | string; h?: number; r?: number }) =>
+export const Skeleton = ({ w = '100%', h = 10, r }: { w?: number | string; h?: number; r?: number | string }) =>
   <div className="skel" style={{ width: w, height: h, borderRadius: r }} />
 
 export function EmptyState({ icon = 'inbox', title, body, action }: { icon?: IconName; title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="empty">
-      <div className="empty-glyph"><Icon name={icon} size={18} /></div>
+      <div className="empty-glyph"><Icon name={icon} size={16} /></div>
       <div className="empty-title">{title}</div>
       {body && <div className="empty-body">{body}</div>}
       {action && <div style={{ marginTop: 'var(--space-2)' }}>{action}</div>}

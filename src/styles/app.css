@@ -1,103 +1,602 @@
+/* =========================================================
+   BREAKPOINT STRATEGY — READ THIS FIRST
+   =========================================================
+   This file is authored MOBILE-FIRST. Every unqualified rule targets a 390px
+   phone. Every media query is `min-width` and only ever ADDS capability as the
+   screen grows. There is not a single `@media (max-width: …)` left anywhere in
+   the codebase. The other queries are FEATURE queries (`pointer: coarse`,
+   `hover: hover`), which describe the input device rather than the width, and
+   exactly ONE `max-height` — the landscape-phone chapter bar, marked where it
+   lives and explained there. Height is a different axis, not a back door to a
+   max-width ladder; nothing else in this file is allowed to key to it. So you
+   can read any component top to bottom and know the last matching rule wins.
+
+   ONE CAVEAT, and it is the bug that hid the desktop inspector for a whole
+   pass: source order only wins between rules of EQUAL specificity. Anything in
+   the base layer that selects on a state attribute (`[data-view]`,
+   `[data-pane]`) must wrap it in `:where()` so the ladder above can still
+   override it — see PHONE: list → detail.
+
+   The ladder, named in tokens.css as --bp-*:
+
+     BASE  (0–767)    ONE COLUMN, EVERYWHERE.
+                      · chapter bar splits into two rows: chrome + a scrolling
+                        chapter strip (--case-chrome-h 44 → 88)
+                      · console left nav becomes an off-canvas drawer
+                      · console is list → detail: the queue IS the page, tapping
+                        a call replaces it with the detail and a back button
+                      · inspector becomes the second tab of the detail; the
+                        action bar sits below both, always reachable, and pads
+                        itself past the iOS home indicator
+                      · approval drawer becomes a full-height bottom sheet
+                      · variant C's table becomes a card list
+                      · doc grids are single column; display type shrinks by
+                        clamp(); the 48/32 rhythm steps to 32/24
+
+     md    ≥768       TWO COLUMNS in the console: queue + transcript. The
+                      inspector is promoted to a slide-over sheet over the
+                      transcript — it is the column you consult, not the one you
+                      navigate with, so it is the one that overlays.
+                      Doc grids go 2-up. Chapter bar is still two rows.
+
+     lg    ≥1024      The left nav rejoins the layout as a real 192px column.
+                      Chapter bar collapses to the single desktop row. Doc grids
+                      go 3-up. Console is still queue + transcript + sheet: at
+                      1024 a third in-flow column would leave a 320px transcript,
+                      which is the bug this rebuild exists to fix.
+
+     xl    ≥1280      The inspector rejoins the layout. Three columns + nav:
+                      192 / 312 / flex / 344. Sheet affordance disappears.
+
+     2xl   ≥1440      Full-fat widths — 216 / 344 / flex / 384. Byte-identical
+                      to what shipped before this rebuild. Do not touch.
+
+   Widths 1401–1439 previously got the 2xl column widths; they now get xl's
+   (192/312 rather than 216/344), which hands 56px to the transcript. No target
+   width regresses.
+
+   ========================================================= */
+
+/* ---------- RESPONSIVE TOKEN LADDER ----------
+   tokens.css declares the design-width value of every layout token. These are
+   the steps below it. Components never learn that any of this happened — they
+   still read --nav-w, --queue-w, --doc-gap-section and so on. */
+:root {
+  /* One row at every width. The chapter list is a sheet now, so there is no
+     second row to make room for. This token is not a description of the bar's
+     height, it is the CONTROL for it — .casebar takes it as an explicit height.
+     Everything that has to clear the chapter bar (the console's own height, the
+     tour invite, the FAB panel's ceiling) measures from here, so the two can
+     never drift. */
+  --case-chrome-h: 56px;
+
+  /* Console columns, phone: the queue and the detail each own the whole width,
+     so the fixed column tokens collapse to 100%. */
+  --nav-w: 264px;          /* off-canvas drawer width, not an in-flow column */
+  --queue-w: 100%;
+  --inspector-w: 100%;
+  --rail-w: 100%;          /* variant B rail lies down as a horizontal strip */
+
+  /* Case-study rhythm, phone. 48 above a section heading is a third of a phone
+     screen of nothing; 32 still reads as a hard break at this measure. */
+  --doc-gap-section: var(--space-10);  /* 48 → 32 */
+  --doc-gap-block:   var(--space-9);   /* 32 → 24 */
+  --doc-pad-y:       var(--space-10);  /* 64 → 32 */
+  --doc-pad-x:       var(--space-7);   /* 24 → 16 */
+
+  --stage-pad: var(--space-7);         /* transcript gutter: 16 → 20 at md */
+
+  /* The bottom of the type scale COLLAPSES on a phone. 10px overlines and 11px
+     mono timestamps are legible on a 27" monitor two feet away and are not
+     legible in a hand, so both step up to 12 — the floor this rebuild holds —
+     and the two rungs merge. Nothing else in the scale moves: the distinction
+     between an overline and a timestamp was never carried by 1px of size, it is
+     carried by case, tracking and colour, all of which survive. */
+  --text-2xs: 12px;  --lh-2xs: 16px;
+  --text-xs:  12px;  --lh-xs:  16px;
+  /* The 18px pill that holds a confidence score needs one more rung to fit a
+     12px number without clipping its own line box. */
+  --control-h-2xs: 20px;
+}
+@media (min-width: 768px) {  /* --bp-md */
+  :root {
+    --queue-w: 300px;
+    --doc-gap-section: var(--space-12);
+    --doc-gap-block:   var(--space-10);
+    --doc-pad-y:       var(--space-13);
+    --doc-pad-x:       var(--space-9);
+    --stage-pad:       var(--space-8);
+    --text-2xs: 10px;  --lh-2xs: 14px;
+    --text-xs:  11px;  --lh-xs:  16px;
+    --control-h-2xs: 18px;
+  }
+}
+@media (min-width: 1024px) {  /* --bp-lg */
+  :root { --nav-w: 192px; }
+}
+/* ---------- the one rule keyed to HEIGHT ----------
+   The chapter bar is two rows because the strip needs horizontal room, so it
+   collapses at lg like everything else. But width is not the only way to run
+   out of room: a landscape phone is 844x390, and there 88px of chapter chrome
+   is 22% of the entire screen for navigation the reader uses once a chapter.
+   Below 560px of viewport height the single row wins, and the strip falls back
+   to the overflow-x scrolling it already has as a backstop at every width.
+   `max-height` — not max-width: the ladder in this file is still one-way. */
+@media (min-width: 1024px) {
+  :root { --case-chrome-h: 64px; }   /* room for the blurb line under the title */
+}
+@media (min-width: 1280px) {  /* --bp-xl */
+  :root { --inspector-w: 344px; --queue-w: 312px; --rail-w: 64px; }
+}
+@media (min-width: 1440px) {  /* --bp-2xl — the untouched design width */
+  :root { --nav-w: 216px; --queue-w: 344px; --inspector-w: 384px; }
+}
+
 /* ===================== APP SHELL ===================== */
 .app { display: flex; flex-direction: column; height: 100%; background: var(--bg-canvas); }
+/* The PRODUCT shell — the console inside a chapter, as opposed to `.app`, which
+   is the case study around it. It pins itself to what the chapter bar leaves.
+   A class rather than an inline style so the variant explorer can hand it a
+   share of the column instead (see .explorer). */
+.shell { height: calc(100dvh - var(--case-chrome-h)); }
 
 .topbar {
-  height: var(--topbar-h); flex: none;
-  display: flex; align-items: center; gap: var(--space-5);
-  padding: 0 var(--space-6) 0 var(--space-5);
+  min-height: var(--topbar-h); flex: none;
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: 0 var(--space-5);
   background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle);
   z-index: 30;
 }
+@media (min-width: 768px) {  /* --bp-md */
+  .topbar { gap: var(--space-5); padding: 0 var(--space-6) 0 var(--space-5); }
+}
+
+/* ---------- what the product topbar can afford, by width ----------
+   Each piece is named for what it is and arrives when there is room for it, in
+   order of how much a reviewer of THIS console actually needs it. The brand,
+   the menu and the avatar are always there; the workspace switcher wants a
+   tablet; global search — the widest element in the bar and the least useful in
+   a case study — and the health badge want a laptop. Explicit per-element rules
+   rather than one utility class, because each of these has a different correct
+   display value and a shared `display: inline-flex` would quietly break two of
+   them. */
+.topbar .shell-search, .topbar .shell-health, .topbar .shell-settings { display: none; }
+.topbar .shell-spacer { display: block; flex: 1; }
+/* The case-study chapter bar directly above already says "Relay". Repeating the
+   wordmark 44px below it on a phone is the app introducing itself twice; the
+   workspace it is scoped to is the thing that is actually worth the row. */
+.topbar .brand { display: none; }
+@media (min-width: 768px) {  /* --bp-md */
+  .topbar .brand { display: flex; }
+  .topbar .shell-settings { display: inline-flex; }
+}
+@media (min-width: 1024px) {  /* --bp-lg */
+  .topbar .shell-search { display: flex; }
+  .topbar .shell-health { display: inline-flex; }
+  .topbar .shell-spacer { display: none; }
+}
+
+/* ---------- case-study chapter bar ----------
+   Phone: a 44px chrome row (brand · theme · prev/next) over a 40px chapter
+   strip that scrolls sideways with snap. Desktop (lg): one row, exactly the
+   treatment that shipped — the strip is simply inline and never needs to
+   scroll, but keeps overflow-x:auto as the backstop that guarantees the bar
+   can never push the page wider than the viewport at any width. */
+.casebar {
+  /* Above the product's own topbar, which is also 30 and comes later in the
+     DOM — so it was winning the tie and painting over this bar's tooltips,
+     which open downward and therefore cross into it. Still below the scrim
+     (99) and every overlay, so those cover the case chrome as they should. */
+  flex: none; z-index: 40; height: var(--case-chrome-h);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle);
+}
+.casebar-main {
+  height: calc(var(--case-chrome-h) - 2px); flex: 1; min-height: 0;
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: 0 var(--space-5) 0 var(--space-6);
+}
+/* From md the bar reads like a title slide: mark left, controls right, and the
+   chapter centred between them. Three equal tracks rather than a spacer, so the
+   title stays optically centred no matter how wide the controls get. */
+@media (min-width: 768px) {   /* --bp-md */
+  .casebar-main {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--space-6);
+  }
+  .casebar-main > .grow { display: none; }
+  .casebar-main > .brand { justify-self: start; }
+  .casebar-main > .row:last-child { justify-self: end; }
+  .chapter-id { justify-self: center; max-width: 100%; }
+  .chapter-titles { align-items: center; text-align: center; }
+}
+.casebar-sub { display: none; }
+/* ─── Presentation chrome ─────────────────────────────
+   Where you are, what it is, how far through. The chapter list lives in a
+   sheet (.contents) rather than a row of pills — pills scale badly, say
+   nothing about a chapter, and turn a document into a menu. */
+.chapter-id {
+  display: flex; align-items: center; gap: var(--space-5);
+  min-width: 0; padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
+  border-radius: var(--radius-md); border: 1px solid transparent;
+  text-align: left; color: inherit;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .chapter-id:hover { background: var(--bg-surface-alt); border-color: var(--border-subtle); } }
+.chapter-id[aria-expanded="true"] { background: var(--bg-surface-alt); border-color: var(--border-subtle); }
+
+.chapter-n {
+  font-family: var(--font-mono); font-weight: var(--weight-regular);
+  font-size: var(--text-sm); line-height: var(--lh-sm);
+  font-variant-numeric: tabular-nums; color: var(--fg-disabled);
+}
+.chapter-titles { display: flex; flex-direction: column; min-width: 0; }
+.chapter-title {
+  font-size: var(--text-lg); line-height: var(--lh-lg);
+  font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The blurb is the first thing to go when the bar gets tight — it is context,
+   not navigation. Returns at lg, where there is room to read it. */
+.chapter-blurb { display: none; }
+.chapter-caret { color: var(--fg-disabled); flex: none; }
+.chapter-count {
+  font-family: var(--font-mono); font-weight: var(--weight-regular);
+  font-size: var(--text-xs); line-height: var(--lh-xs);
+  font-variant-numeric: tabular-nums; color: var(--fg-secondary);
+  padding-right: var(--space-3);
+}
+.chapter-count span { color: var(--fg-disabled); }
+
+.progress-rule { display: flex; gap: 1px; height: 2px; flex: none; }
+.progress-rule i { flex: 1; background: var(--border-subtle); transition: background var(--dur-slow) var(--ease-out); }
+.progress-rule i[data-done="true"] { background: var(--accent-bg); }
+
+/* ─── Contents sheet ─────────────────────────────────── */
+.contents {
+  position: fixed; z-index: 120;
+  left: var(--space-7); right: var(--space-7);
+  top: calc(var(--case-chrome-h) + var(--space-4));
+  max-height: calc(100dvh - var(--case-chrome-h) - var(--space-12));
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-4);
+  animation: fade-up var(--dur-base) var(--ease-out);
+}
+.contents-head {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-6) var(--space-6) var(--space-4) var(--space-7);
+}
+.contents-item {
+  display: flex; align-items: flex-start; gap: var(--space-6);
+  width: 100%; text-align: left; color: inherit;
+  padding: var(--space-5) var(--space-7);
+  border-top: 1px solid var(--border-subtle);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .contents-item:hover { background: var(--bg-surface-alt); } }
+.contents-item[data-active="true"] { background: var(--bg-selected); }
+.contents-n {
+  font-family: var(--font-mono); font-weight: var(--weight-regular);
+  font-size: var(--text-sm); line-height: var(--lh-base);
+  font-variant-numeric: tabular-nums; color: var(--fg-disabled); flex: none;
+}
+.contents-item[data-active="true"] .contents-n { color: var(--accent-fg); }
+.contents-title { display: block; font-size: var(--text-base); line-height: var(--lh-base); font-weight: var(--weight-medium); }
+.contents-blurb { display: block; font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary); margin-top: var(--space-1); }
+.contents-here { color: var(--accent-fg); margin-left: auto; flex: none; }
+/* The chapter control is the way through this case study on a phone, so it
+   carries a full touch target. It is already wide, so it grows in height only
+   (see TOUCH TARGETS in ds.css) rather than stealing a neighbour's taps. */
+@media (pointer: coarse) {
+  .chapter-id { position: relative; }
+  .chapter-id::before {
+    content: ''; position: absolute; top: 50%; left: 0;
+    width: 100%; height: var(--touch-min); transform: translateY(-50%);
+  }
+}
+
+@media (min-width: 768px) {   /* --bp-md */
+  .contents { left: auto; right: var(--space-7); width: var(--coach-card-w); }
+}
+@media (min-width: 1024px) {  /* --bp-lg — room to say what the chapter is */
+  .chapter-blurb {
+    display: block;
+    font-size: var(--text-xs); line-height: var(--lh-xs);
+    color: var(--fg-tertiary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .contents { width: 420px; }
+}
+/* ---------- tips in a top bar open DOWNWARD ----------
+   A tooltip is drawn above its control (see TOOLTIP in ds.css), and in either
+   of these two bars there is nothing above the control but the edge of the
+   window — so `above` meant `off the top of the screen`, and the tips on the
+   theme toggle, both chapter arrows, the menu button and settings were clipped
+   away in full at every width. Structural rather than a prop on each button:
+   every tip that will ever sit in one of these bars wants this. */
+.casebar .tip::after, .topbar .tip::after { bottom: auto; top: calc(100% + var(--space-3)); }
+.casebar .tip, .topbar .tip { --tip-in: tip-in-down; }
+
 .brand { display: flex; align-items: center; gap: var(--space-4); padding-right: var(--space-4); }
 .brand-mark {
-  width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
-  background: linear-gradient(150deg, var(--signal-400), var(--signal-700)); color: #fff;
+  /* The one place Tier 1 brand primitives are used on purpose: a logo mark
+     must NOT invert with the theme. The inset gloss is part of the mark. */
+  width: var(--mark-sz); height: var(--mark-sz); border-radius: var(--radius-md); display: grid; place-items: center;
+  background: linear-gradient(150deg, var(--signal-400), var(--signal-700)); color: var(--ink-0);
   box-shadow: 0 1px 2px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.28);
 }
-.brand-name { font-size: var(--text-base); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
+.brand-name { font-size: var(--text-base); line-height: var(--lh-base); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
 .workspace {
-  display: flex; align-items: center; gap: var(--space-3); height: 26px; padding: 0 var(--space-3) 0 var(--space-4);
+  position: relative;
+  display: flex; align-items: center; gap: var(--space-3); height: var(--control-h-sm); padding: 0 var(--space-3) 0 var(--space-4);
   border-radius: var(--radius-md); color: var(--fg-secondary); font-size: var(--text-md); font-weight: var(--weight-medium);
 }
-.workspace:hover { background: var(--bg-hover); color: var(--fg-primary); }
+@media (hover: hover) { .workspace:hover { background: var(--bg-hover); color: var(--fg-primary); } }
+/* Height-only: it is 141px wide and its neighbours in the bar are a menu button
+   and an avatar, both of which need their own horizontal room. */
+@media (pointer: coarse) {
+  .workspace::before {
+    content: ''; position: absolute; top: 50%; left: 0;
+    width: 100%; height: var(--touch-min); transform: translateY(-50%);
+  }
+}
 
 .body { flex: 1; display: flex; min-height: 0; }
 
+/* ---------- console left nav ----------
+   Below lg it is off-canvas: same markup, same items, driven onto the screen by
+   the topbar's menu button. It is genuinely secondary — it navigates between
+   product areas, and the case study only ever shows one — so it is the first
+   thing to leave the layout and the last thing to come back. */
 .nav {
   width: var(--nav-w); flex: none; display: flex; flex-direction: column;
   padding: var(--space-5) var(--space-4); gap: var(--space-1);
   border-right: 1px solid var(--border-subtle); background: var(--bg-surface);
+
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 100;
+  max-width: 84vw; overflow-y: auto;
+  box-shadow: var(--shadow-4);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform var(--dur-base) var(--ease-out), visibility var(--dur-base) step-end;
+  padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
+}
+.nav[data-open="true"] {
+  transform: none; visibility: visible;
+  transition: transform var(--dur-base) var(--ease-out), visibility 0s;
+}
+.nav-scrim {
+  position: fixed; inset: 0; z-index: 99;
+  background: var(--bg-scrim); border: none; width: 100%;
+  animation: fade-up var(--dur-fast) var(--ease-out);
+}
+@media (min-width: 1024px) {  /* --bp-lg — rejoins the layout */
+  .nav {
+    position: static; transform: none; visibility: visible;
+    max-width: none; box-shadow: none; z-index: auto;
+    padding-bottom: var(--space-5); transition: none;
+  }
+  .nav-scrim, .navbtn { display: none; }
 }
 .nav-group { margin: var(--space-6) 0 var(--space-2); padding: 0 var(--space-4); }
 .nav-item {
-  display: flex; align-items: center; gap: var(--space-5); height: 30px; padding: 0 var(--space-4);
+  display: flex; align-items: center; gap: var(--space-5); height: var(--control-h-md); padding: 0 var(--space-4);
   border-radius: var(--radius-md); color: var(--fg-secondary);
   font-size: var(--text-md); font-weight: var(--weight-medium); width: 100%;
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.nav-item:hover { background: var(--bg-hover); color: var(--fg-primary); }
+@media (hover: hover) { .nav-item:hover { background: var(--bg-hover); color: var(--fg-primary); } }
+/* The one place a control's VISUAL size grows on touch rather than just its hit
+   area. Stacked rows 32px tall on a 2px gap cannot be given overhanging 44px
+   targets without every row stealing from the one below it — and unlike a
+   toolbar, a list is exactly where that mis-tap matters. The drawer has 264px
+   of width and a whole screen of height to spend, so the row simply gets
+   bigger, which is what a phone navigation drawer should have been anyway. */
+@media (pointer: coarse) { .nav .nav-item { height: var(--touch-min); } }
 .nav-item[data-active="true"] { background: var(--bg-selected); color: var(--accent-fg); }
 .nav-item[data-active="true"] svg { color: var(--accent-fg); }
 .nav-item svg { color: var(--fg-tertiary); }
 .nav-count {
-  margin-left: auto; font-size: var(--text-xs); font-weight: var(--weight-semibold);
+  margin-left: auto; font-size: var(--text-xs); line-height: var(--lh-xs); font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums; color: var(--fg-tertiary);
-  background: var(--bg-sunken); border-radius: var(--radius-full); padding: 1px 6px;
+  background: var(--bg-sunken); border-radius: var(--radius-full); padding: 0 var(--space-3);
 }
 .nav-item[data-active="true"] .nav-count { background: var(--bg-surface); color: var(--accent-fg); }
-.nav-count[data-urgent="true"] { background: var(--danger-solid); color: #fff; }
+.nav-count[data-urgent="true"] { background: var(--danger-solid); color: var(--fg-on-accent); }
 
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .pageheader {
   min-height: var(--pageheader-h); flex: none;
-  display: flex; align-items: center; gap: var(--space-6);
-  padding: 0 var(--space-8); background: var(--bg-surface);
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-5) var(--space-4);
+  padding: var(--space-4) var(--space-6); background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
 }
-.crumbs { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--fg-tertiary); }
-.crumbs a:hover { color: var(--fg-primary); }
-.page-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
+.pageheader-back { flex: none; }
+/* Header actions are secondary on every screen but variant B, where Skip and
+   Next are how you move through the queue at all. Everything hidden here has a
+   twin in the action bar at the foot of the console. */
+.pageheader-actions { display: none; }
+.pageheader-actions[data-phone="true"] { display: flex; flex: 1 1 100%; justify-content: flex-end; order: 3; }
+/* The inspector's summons: a two-item segmented, because below xl the inspector
+   and the transcript are two views of ONE call and the control should say so
+   rather than implying a panel appearing from somewhere else.
+   On a phone it takes its own full-width row under the title — the shape a
+   phone reader already knows means "these are the tabs of this thing". */
+.pane-toggle { flex: 1 1 100%; order: 2; }
+.pane-toggle .segmented { display: flex; width: 100%; }
+.pane-toggle .segmented button { flex: 1; }
+@media (min-width: 768px) {  /* --bp-md */
+  .pageheader { flex-wrap: nowrap; gap: var(--space-6); padding: 0 var(--space-8); }
+  .pageheader-actions, .pageheader-actions[data-phone="true"] { display: flex; flex: none; order: 0; }
+  .pane-toggle { flex: none; order: 0; }
+  .pane-toggle .segmented { display: inline-flex; width: auto; }
+  .pane-toggle .segmented button { flex: none; }
+}
+/* The crumbs are the trail back on a desktop; on a phone the back button in
+   the same row does that job in one tap, so they would be duplicate chrome. */
+.crumbs { display: none; align-items: center; gap: var(--space-3); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary); }
+@media (hover: hover) { .crumbs a:hover { color: var(--fg-primary); } }
+.page-title { font-size: var(--text-lg); line-height: var(--lh-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
+/* Badge shelf under the title. Wraps rather than squeezing the title. */
+.page-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); min-width: 0; }
+@media (min-width: 768px) {  /* --bp-md */
+  .crumbs { display: flex; }
+}
 
-.content { flex: 1; min-height: 0; display: flex; }
+/* Variants B and C put a single self-managing child here, so plain .content
+   stays a flex box — a column until variant B's avatar rail stands back up at
+   xl. The CONSOLE (and only the console) sets [data-view], and that attribute
+   is the hook for the three-shape grid below. */
+.content { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+@media (min-width: 1280px) { .content { flex-direction: row; } }  /* --bp-xl */
+
+/* =========================================================
+   CONSOLE LAYOUT — ONE GRID, THREE SHAPES
+   =========================================================
+   `.inspector` is `display: contents` at every width (see INSPECTOR below), so
+   the grid's real children are: queue · stage · inspector-scroll · actionbar.
+   Dissolving that wrapper is what lets the action bar be a SIBLING of the
+   panes rather than a footer trapped inside one of them — which is the whole
+   reason Approve stays on screen while you read the transcript on a phone.
+
+     BASE  "main" / "bar"                — one pane at a time, bar underneath
+     md    "queue stage" / "bar bar"     — two columns, bar spans both,
+                                            inspector slides over the stage cell
+     xl    "queue stage insp"            — three columns, bar under the
+           "queue stage bar"               inspector exactly as it always was */
+.content[data-view] {
+  display: grid; min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "main" "bar";
+}
+.content[data-view] > .queue,
+.content[data-view] > .stage,
+.content[data-view] > .inspector > .inspector-scroll { grid-area: main; }
+.content[data-view] > .inspector > .actionbar { grid-area: bar; }
+
+/* ---------- PHONE: list → detail ----------
+   The queue IS the page; opening a call swaps it for the detail, and the back
+   button in the page header swaps back. Above md these attributes still sit on
+   the element but nothing reads them, so one DOM serves every width.
+
+   :where() IS LOAD-BEARING, and this is the bug it fixes. Written plainly,
+   `.content[data-view="detail"][data-pane="transcript"] > .inspector >
+   .inspector-scroll` is five compound parts against the md block's four — and
+   specificity beats source order, so the phone rule went on winning at 1440.
+   The desktop inspector was therefore present on a fresh load (`view` starts as
+   'list', so the selector did not match) and VANISHED the moment anyone clicked
+   a call in the queue, which is the first thing anyone does. :where() takes the
+   weight off the state attributes — they are the CONDITION, never the priority
+   — so the md and xl blocks below can put each pane back by simply coming
+   after. Any new rule here must keep its state attributes inside :where(). */
+.content:where([data-view="list"]) > .stage,
+.content:where([data-view="list"]) > .inspector,
+.content:where([data-view="detail"]) > .queue { display: none; }
+.content:where([data-view="detail"][data-pane="transcript"]) > .inspector > .inspector-scroll,
+.content:where([data-view="detail"][data-pane="inspector"]) > .stage { display: none; }
+
+@media (min-width: 768px) {  /* --bp-md — two columns; every pane is present */
+  .content[data-view] {
+    grid-template-columns: var(--queue-w) minmax(0, 1fr);
+    grid-template-areas: "queue stage" "bar bar";
+    /* The parked inspector sheet is `translateX(101%)` and `visibility:
+       hidden` — and hidden is not `display: none`, so it still counted as 468px
+       of SCROLLABLE overflow. That put a horizontal scrollbar under the whole
+       console at every width from 768 to 1279, and let the reader pan the
+       console sideways to find the panel lying off-stage. `clip` rather than
+       `hidden`: hidden on one axis forces `auto` on the other, which would have
+       made this grid a second vertical scroll container inside a layout whose
+       panes already own their own scrolling. Restored to `visible` at xl, where
+       the sheet is a plain column again and nothing overhangs — so tooltips at
+       the far edge of the desktop inspector still escape as they always did. */
+    overflow-x: clip;
+  }
+  .content[data-view] > .queue { grid-area: queue; display: flex; }
+  .content[data-view] > .stage { grid-area: stage; display: flex; }
+  .content[data-view] > .inspector { display: contents; }
+  .content[data-view] > .inspector > .inspector-scroll { grid-area: stage; display: block; }
+}
+
+@media (min-width: 1280px) {  /* --bp-xl — the inspector earns its own column */
+  .content[data-view] {
+    grid-template-columns: var(--queue-w) minmax(0, 1fr) var(--inspector-w);
+    grid-template-areas: "queue stage insp" "queue stage bar";
+    overflow-x: visible;
+  }
+  .content[data-view] > .inspector > .inspector-scroll { grid-area: insp; }
+}
 
 /* ===================== QUEUE LIST ===================== */
-.queue { width: 344px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--border-subtle); background: var(--bg-surface); min-height: 0; }
-.queue-toolbar { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-5) var(--space-5); border-bottom: 1px solid var(--border-subtle); }
+.queue { width: var(--queue-w); flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border-subtle); background: var(--bg-surface); min-height: 0; min-width: 0; }
+@media (min-width: 768px) { .queue { flex: none; } }  /* --bp-md */
+.queue-toolbar { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-5) var(--space-7); border-bottom: 1px solid var(--border-subtle); }
 .queue-list { flex: 1; overflow-y: auto; }
 .qitem {
-  display: block; width: 100%; text-align: left; padding: var(--space-5) var(--space-5);
+  display: block; width: 100%; text-align: left; padding: var(--space-5) var(--space-7);
   border-bottom: 1px solid var(--border-subtle); position: relative;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.qitem:hover { background: var(--bg-surface-alt); }
+@media (hover: hover) { .qitem:hover { background: var(--bg-surface-alt); } }
 .qitem[data-selected="true"] { background: var(--bg-selected); }
-.qitem[data-selected="true"]::before { content:''; position: absolute; left:0; top:0; bottom:0; width:2px; background: var(--accent-bg); }
+/* Selection is carried by the surface alone. A coloured rail down the edge is
+   a third signal on a row that already has a tint and a bolder name. */
 .qitem-top { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-3); }
-.qitem-name { font-size: var(--text-md); font-weight: var(--weight-semibold); }
-.qitem-meta { margin-left: auto; font-size: var(--text-xs); color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
-.qitem-summary { font-size: var(--text-sm); color: var(--fg-secondary); margin-bottom: var(--space-4); padding-left: 34px; }
-.qitem-tags { display: flex; align-items: center; gap: var(--space-3); padding-left: 34px; }
+.qitem-name { font-size: var(--text-md); line-height: var(--lh-md); font-weight: var(--weight-semibold); }
+.qitem-meta { margin-left: auto; font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
+/* Indent = avatar + its gap, so summary and tags hang off the name, not the face. */
+.qitem-summary { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-secondary); margin-bottom: var(--space-4); padding-left: calc(var(--control-h-sm) + var(--space-4)); }
+.qitem-tags { display: flex; align-items: center; gap: var(--space-3); padding-left: calc(var(--control-h-sm) + var(--space-4)); }
 
 /* ===================== TRANSCRIPT ===================== */
-.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg-canvas); }
-.stage-scroll { flex: 1; overflow-y: auto; padding: var(--space-8); }
+.stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-canvas); }
+.stage-scroll { flex: 1; overflow-y: auto; padding: var(--stage-pad); }
 
-.callcard { padding: var(--space-6) var(--space-7); display: flex; align-items: center; gap: var(--space-7); }
-.callstat { display: flex; flex-direction: column; gap: 3px; }
-.callstat-k { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--fg-tertiary); font-weight: var(--weight-semibold); }
-.callstat-v { font-size: var(--text-md); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
+/* Two rows, not eight children on one line: the transport (play · elapsed ·
+   waveform · length), then the three outcome stats under it. On one line the
+   waveform was the only flexible child, so the whole console's width came out
+   of it — 14px of sticks at 1440, zero at 1280. Given its own row it stays the
+   same shape in all eight call states and down to a 1280 viewport. */
+.callcard { padding: var(--space-6); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); row-gap: var(--space-6); }
+.transport { display: flex; align-items: center; gap: var(--space-6); flex: 1 1 100%; min-width: 0; }
+/* On a phone the three stats get the same treatment the transport already had:
+   their own full-width row, spread rather than packed, so no value is ever the
+   one that has to shrink. */
+.callstats { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); flex: 1 1 100%; flex-wrap: wrap; }
+@media (min-width: 768px) {  /* --bp-md */
+  .callcard { padding: var(--space-6) var(--space-7); gap: var(--space-7); }
+  .transport { gap: var(--space-7); }
+  .callstats { flex: none; justify-content: flex-start; gap: var(--space-7); }
+}
+.callstat { display: flex; flex-direction: column; gap: var(--space-1); }
+.callstat-k { font-size: var(--text-2xs); line-height: var(--lh-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--fg-tertiary); font-weight: var(--weight-semibold); }
+.callstat-v { font-size: var(--text-md); line-height: var(--lh-md); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
 
-.wave { display: flex; align-items: center; gap: 2px; height: 30px; flex: 1; min-width: 0; }
-.wave i { flex: 1; background: var(--border-strong); border-radius: 1px; transition: background var(--dur-fast) var(--ease-out); }
+/* The stick count is now DERIVED from the measured width of this element (see
+   Waveform in Review.tsx), so a stick is between --space-2 and --space-5 wide
+   at every viewport from 320 up. min-width is the belt to that braces: even
+   mid-resize, before the observer has fired, a stick can never flex to 0. */
+.wave { display: flex; align-items: center; gap: var(--space-1); height: var(--control-h-md); flex: 1; min-width: 0; overflow: hidden; }
+.wave i { flex: 1 1 0; min-width: var(--space-1); background: var(--border-strong); border-radius: var(--radius-3xs); transition: background var(--dur-fast) var(--ease-out); }
 .wave i[data-played="true"] { background: var(--accent-bg); }
 .wave i[data-flag="true"] { background: var(--conf-low-solid); }
 
 .turns { display: flex; flex-direction: column; }
-.turn { display: grid; grid-template-columns: 40px 26px 1fr; gap: var(--space-4); padding: var(--space-4) 0; align-items: start; }
-.turn-t { font-size: var(--text-xs); color: var(--fg-disabled); font-variant-numeric: tabular-nums; padding-top: 5px; font-family: var(--font-mono); }
-.turn-body { min-width: 0; padding-top: 2px; }
-.turn-who { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--fg-tertiary); margin-bottom: 2px; }
+/* 40px timecode gutter, then a column exactly one small avatar wide. On a phone
+   the gutter steps to 32 and the gap to 6 — 22px of the 350px line back to the
+   words, which is a whole extra word per line at this measure. */
+.turn { display: grid; grid-template-columns: var(--space-10) var(--control-h-xs) 1fr; gap: var(--space-3); padding: var(--space-4) 0; align-items: start; }
+@media (min-width: 768px) {  /* --bp-md */
+  .turn { grid-template-columns: var(--space-11) var(--control-h-xs) 1fr; gap: var(--space-4); }
+}
+/* padding-top values here are optical: they sit the 11px mono timecode and the
+   speaker label on the same baseline as the 14px transcript text. --space-1
+   lands the mono line box exactly on the sans one; 3px left it 1px low. */
+.turn-t { font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--fg-disabled); font-variant-numeric: tabular-nums; padding-top: var(--space-1); font-family: var(--font-mono); font-weight: var(--weight-regular); }
+.turn-body { min-width: 0; padding-top: var(--space-1); }
+.turn-who { font-size: var(--text-xs); line-height: var(--lh-xs); font-weight: var(--weight-semibold); color: var(--fg-tertiary); margin-bottom: var(--space-1); }
 .turn-text { font-size: var(--text-base); line-height: var(--lh-base); color: var(--fg-primary); }
 .turn[data-who="customer"] .turn-text { color: var(--fg-primary); }
 .turn-uncertain {
@@ -109,84 +608,883 @@
   display: inline-flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
   padding: var(--space-3) var(--space-5); border-radius: var(--radius-md);
   background: var(--bg-inset); border: 1px solid var(--border-subtle);
-  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-secondary);
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--fg-secondary);
+  font-weight: var(--weight-regular); /* mono is never bold, anywhere */
 }
-.toolcall b { color: var(--fg-primary); font-weight: var(--weight-medium); }
+.toolcall b { color: var(--fg-primary); font-weight: var(--weight-regular); }
 .toolcall .ms { margin-left: auto; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
-.toolcall[data-status="slow"] { border-color: var(--warning-border); background: var(--warning-bg); }
-.toolcall[data-status="fail"] { border-color: var(--danger-border); background: var(--danger-bg); }
+/* Tonal, not tinted. A tool call is a technical line of mono text — washing it
+   amber or red makes the CODE harder to read to say something about the
+   TIMING, which is one small word at the far end of the row. So the surface
+   stays in the neutral family and only the verdict takes colour. */
+.toolcall[data-status="slow"] { border-color: var(--border-default); }
+.toolcall[data-status="fail"] { border-color: var(--border-strong); }
+.toolcall[data-status="slow"] .ms { color: var(--warning-fg); }
+.toolcall[data-status="fail"] .ms { color: var(--danger-fg); }
+.toolcall[data-status="fail"] b { color: var(--danger-fg); }
 
 .eventline {
   display: flex; align-items: flex-start; gap: var(--space-4);
   padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
   font-size: var(--text-sm); line-height: var(--lh-sm);
 }
-.eventline[data-tone="warning"] { background: var(--warning-bg); color: var(--warning-fg); border: 1px solid var(--warning-border); }
-.eventline[data-tone="danger"]  { background: var(--danger-bg);  color: var(--danger-fg);  border: 1px solid var(--danger-border); }
-.eventline[data-tone="info"]    { background: var(--info-bg);    color: var(--info-fg);    border: 1px solid var(--info-border); }
-.eventline[data-tone="ai"]      { background: var(--ai-bg);      color: var(--ai-fg);      border: 1px solid var(--ai-border); }
-.eventline svg { margin-top: 1px; }
+/* ---------- tiles are neutral; status lives INSIDE them ----------
+   Every callout used to be a wash of its own colour. Stacked on a light grey
+   page that reads as mush: three faint pastels competing, none of them legible,
+   and body copy sitting on a tint it was never contrast-checked against.
 
-/* ===================== INSPECTOR ===================== */
-.inspector {
-  width: var(--inspector-w); flex: none; display: flex; flex-direction: column;
-  border-left: 1px solid var(--border-subtle); background: var(--bg-surface); min-height: 0;
-}
-.inspector-scroll { flex: 1; overflow-y: auto; }
+   So the tile is a plain surface at full contrast, and the colour concentrates
+   into the two things that actually carry the state — the glyph, and whatever
+   the sentence puts in bold. Less colour, far more signal. */
+.eventline { background: var(--bg-surface); border: 1px solid var(--border-default); color: var(--fg-secondary); }
+.eventline b, .eventline strong { color: var(--fg-primary); font-weight: var(--weight-semibold); }
+.eventline[data-tone="warning"] svg { color: var(--warning-solid); }
+.eventline[data-tone="danger"]  svg { color: var(--danger-solid); }
+.eventline[data-tone="info"]    svg { color: var(--info-solid); }
+.eventline[data-tone="ai"]      svg { color: var(--ai-solid); }
+.eventline[data-tone="warning"] b, .eventline[data-tone="warning"] strong { color: var(--warning-fg); }
+.eventline[data-tone="danger"]  b, .eventline[data-tone="danger"]  strong { color: var(--danger-fg); }
+/* 14px glyph in an 18px line box — 2px centres it on the first line. */
+.eventline svg { margin-top: var(--space-1); }
+
+/* ===================== INSPECTOR =====================
+   The wrapper is `display: contents` at EVERY width — it exists in the DOM to
+   group the panel with its action bar semantically, never to draw a box. The
+   grid above places its two children directly. */
+.inspector { display: contents; }
+
+.inspector-scroll { overflow-y: auto; min-height: 0; background: var(--bg-surface); }
+/* On a phone the inspector is a full pane, not a sheet — there is nothing
+   behind it to dim, and nothing to tap past. */
+.insp-scrim { display: none; }
 .insp-section { border-bottom: 1px solid var(--border-subtle); }
 .insp-head {
   display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-6) var(--space-6) var(--space-4);
+  padding: var(--space-6) var(--space-7) var(--space-4);
 }
 .actionbar {
   flex: none; display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-5) var(--space-7);
   border-top: 1px solid var(--border-subtle); background: var(--bg-surface-alt);
+  /* Clears the iOS home indicator. max() so it costs a desktop nothing. */
+  padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
+  flex-wrap: wrap; row-gap: var(--space-3);
+}
+/* Same call as .hero-keys and .pins-hint: a key cap on a device with no
+   keyboard is not decoration, it is a false affordance — and this is the most
+   crowded row in the console, so it is also the 28px that lets Escalate,
+   Reject and Approve share one line at 320. */
+@media (pointer: coarse) { .actionbar .kbd { display: none; } }
+
+@media (min-width: 768px) {  /* --bp-md — the panel slides over the transcript */
+  .inspector-scroll {
+    z-index: 70; border-left: 1px solid var(--border-default);
+    box-shadow: var(--shadow-4);
+    /* 86% of the STAGE CELL, not of the viewport. `62vw` never bound anything —
+       md starts at 768, so 62vw is 476px at its smallest and the 468 always
+       won — which meant that at 768 the sheet was 10px WIDER than the transcript
+       it slides over. It covered the scrim completely, so the one affordance
+       this shape promises, tap-the-transcript-to-dismiss, did not exist at the
+       width where the shape first appears. A share of the cell leaves a strip
+       of transcript showing at every width from 768 up. */
+    justify-self: end; width: min(var(--drawer-w), 86%); height: 100%;
+    transform: translateX(101%); visibility: hidden;
+    transition: transform var(--dur-base) var(--ease-out), visibility var(--dur-base) step-end;
+  }
+  .content[data-pane="inspector"] > .inspector > .inspector-scroll {
+    transform: none; visibility: visible;
+    transition: transform var(--dur-base) var(--ease-out), visibility 0s;
+  }
+  /* Sits in the same grid cell as the sheet, one layer down, so tapping the
+     transcript closes the panel the way tapping outside any sheet should. */
+  .insp-scrim {
+    display: block; grid-area: stage; z-index: 69; border: none; width: 100%; height: 100%;
+    background: var(--bg-scrim); animation: fade-up var(--dur-fast) var(--ease-out);
+  }
+}
+
+@media (min-width: 1280px) {  /* --bp-xl — back to being a plain column */
+  .inspector-scroll {
+    z-index: auto; box-shadow: none; border-left-color: var(--border-subtle);
+    justify-self: stretch; width: auto; height: auto;
+    transform: none; visibility: visible; transition: none;
+  }
+  .actionbar { border-left: 1px solid var(--border-subtle); flex-wrap: nowrap; }
+  .insp-scrim, .pane-toggle, .pageheader-back { display: none; }
 }
 
 .proposal {
-  margin: 0 var(--space-6) var(--space-6); padding: var(--space-6);
+  margin: 0 var(--space-7) var(--space-7); padding: var(--space-6);
   border-radius: var(--radius-lg); border: 1px solid var(--border-default); background: var(--bg-surface);
   box-shadow: var(--shadow-1);
 }
-.proposal[data-gated="true"] { border-color: var(--warning-border); background: linear-gradient(0deg, var(--warning-bg), var(--warning-bg)), var(--bg-surface); }
-.proposal-title { font-size: var(--text-base); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
-.proposal-meta { font-size: var(--text-sm); color: var(--fg-secondary); }
+/* The gated card keeps a warning BORDER — it has to win against three plain
+   siblings — but the surface stays white so the amount stays readable. */
+.proposal[data-gated="true"] { border-color: var(--warning-solid); box-shadow: var(--shadow-2); }
+.proposal-title { font-size: var(--text-base); line-height: var(--lh-base); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
+.proposal-meta { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-secondary); }
 
+/* A SENTENCE with a glyph in front of it, not a row of boxes. As a flex row
+   each of "Blocked by", the rule name and the rest of the clause was its own
+   flex item wrapping on its own, which on a phone broke
+   "Blocked by refund_ceiling — over $250 needs a manager, not you"
+   into a four-line staircase. Block + an inline glyph lets the whole thing
+   wrap as one run of text, which is what it is. */
 .policyline {
-  display: flex; align-items: center; gap: var(--space-3);
-  font-size: var(--text-xs); color: var(--fg-tertiary);
+  display: block;
+  font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--fg-tertiary);
   padding: var(--space-3) 0 0;
 }
+.policyline svg { display: inline-block; vertical-align: -2px; margin-right: var(--space-3); }
 
-/* ===================== DOC / CASE STUDY ===================== */
-.doc { max-width: 1080px; margin: 0 auto; padding: var(--space-13) var(--space-9); }
-.doc h1 { font-size: var(--text-4xl); line-height: var(--lh-4xl); letter-spacing: -0.028em; font-weight: var(--weight-semibold); }
-.doc h2 { font-size: var(--text-2xl); line-height: var(--lh-2xl); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); margin-top: var(--space-12); }
-.doc h3 { font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
-.doc p  { font-size: var(--text-lg); line-height: 26px; color: var(--fg-secondary); max-width: 68ch; }
-.doc .lede { font-size: var(--text-xl); line-height: 30px; color: var(--fg-secondary); }
+/* ===================== DOC / CASE STUDY =====================
+   ONE VERTICAL RHYTHM, used by every chapter. Four gaps, nothing else:
 
-.metagrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+     --doc-gap-section  above any section heading (h2 / Block / matrix Row)
+     --doc-gap-block    lede → first block, when that block has no heading
+     --doc-gap-tight    section heading → its content, and block → block
+     --doc-gap-sub      heading → its own sub-line (lede, deck, caption)
+
+   At the design width those are the 48 / 32 / 12 / 6 ladder this chapter set
+   has always used. On a phone the top two step to 32 / 24 (see RESPONSIVE
+   TOKEN LADDER) — the ladder stays one decision, and every chapter follows it
+   at both ends without a single per-instance override. */
+.doc { max-width: var(--doc-w); margin: 0 auto; padding: var(--doc-pad-y) var(--doc-pad-x); }
+.doc h1 { font-size: var(--text-4xl); line-height: var(--lh-4xl); letter-spacing: var(--tracking-tighter); font-weight: var(--weight-semibold); }
+.doc h2 {
+  font-size: var(--text-2xl); line-height: var(--lh-2xl); letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold); margin-top: var(--doc-gap-section); margin-bottom: var(--doc-gap-tight);
+}
+/* Sub-chapters drop h1 to --text-3xl. */
+.doc--sub h1 { font-size: var(--text-3xl); line-height: var(--lh-3xl); letter-spacing: var(--tracking-tight); }
+/* Two weights of section heading. The default (--text-2xl) is the norm; these
+   two let one chapter say which of its sections is the argument and which is
+   the run-up, without inventing a new type step for either. */
+.doc h2.h2-quiet { font-size: var(--text-lg); line-height: var(--lh-lg); letter-spacing: var(--tracking-snug); color: var(--fg-secondary); }
+.doc h2.h2-loud  { font-size: var(--text-3xl); line-height: var(--lh-3xl); letter-spacing: var(--tracking-tight); }
+/* ---------- pitch band ----------
+   One column on a phone (pitch, then the aside beneath it — the argument
+   before the credentials). From lg the aside moves alongside, filling the
+   space the 54ch measure was leaving empty. */
+.pitch { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-10); }
+@media (min-width: 1024px) {   /* --bp-lg */
+  .pitch { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--space-12); align-items: start; }
+}
+.pitch-aside { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+/* Inside the aside the contact card stacks — it has a column's width, not a
+   page's, so the horizontal arrangement below would crush it. */
+.pitch-aside .contact { flex-direction: column; align-items: stretch; gap: var(--space-6); margin-top: 0; }
+.pitch-aside .doc-note { margin-top: 0; }
+
+/* ---------- contact ---------- */
+.contact {
+  display: flex; flex-direction: column; gap: var(--space-6);
+  margin-top: var(--doc-gap-section);
+  padding: var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+}
+@media (min-width: 768px) {   /* --bp-md */
+  .contact { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); }
+}
+.contact-who { display: flex; align-items: center; gap: var(--space-6); min-width: 0; }
+.contact-photo {
+  /* --space-13 is the top of the scale (64px). --space-16 does not exist,
+     and an undefined length silently becomes `auto` — which rendered the
+     full-size photograph. */
+  width: var(--space-13); height: var(--space-13); flex: none;
+  border-radius: var(--radius-full); object-fit: cover;
+  object-position: 50% 30%;   /* faces sit high in a square crop */
+  border: 1px solid var(--border-subtle);
+}
+.contact-name { font-size: var(--text-lg); line-height: var(--lh-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
+.contact-role { font-size: var(--text-md); line-height: var(--lh-md); color: var(--fg-secondary); margin-top: var(--space-2); max-width: 44ch; }
+.contact-links { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.contact-link {
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  height: var(--control-h-md); padding: 0 var(--space-5);
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-primary);
+  text-decoration: none; white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.contact-link svg { color: var(--fg-tertiary); }
+@media (hover: hover) {
+  .contact-link:hover { border-color: var(--border-strong); background: var(--bg-surface-alt); }
+  .contact-link:hover svg { color: var(--fg-brand); }
+}
+
+/* `.doc p` (0,1,1) was beating `.doc-note` (0,1,0), so this 12px note was
+   inheriting the 26px PROSE leading meant for body copy — far too loose, and
+   it threw the icon 4px high because the offset below is derived from the
+   line box. Qualifying the selector wins the cascade honestly. */
+.doc p.doc-note, .doc-note {
+  display: flex; align-items: flex-start; gap: var(--space-4);
+  line-height: var(--lh-sm);
+  margin-top: var(--space-8); max-width: 62ch;
+  font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary);
+}
+/* Centre the glyph on the FIRST LINE BOX, not on the paragraph. A guessed 2px
+   looked right at one type size and wrong at every other; this derives the
+   offset from the line height the icon actually sits in. */
+.doc-note svg { flex: none; margin-top: calc((var(--lh-sm) - 13px) / 2); }
+.doc h3 { font-size: var(--text-lg); line-height: var(--lh-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-snug); }
+.doc p  { font-size: var(--text-lg); line-height: var(--lh-prose); color: var(--fg-secondary); max-width: 68ch; }
+.doc .lede { font-size: var(--text-xl); line-height: var(--lh-2xl); color: var(--fg-secondary); margin-top: var(--doc-gap-tight); }
+/* The one place a chapter opens a block with no heading above it. */
+.doc-block { margin-top: var(--doc-gap-block); }
+
+/* Every chapter signs off the same way: a full section gap, a hairline, then
+   the way out. Was a divider on one chapter, a bare margin on two, and a
+   border with different padding on a fourth. */
+.doc-next {
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+  margin-top: var(--doc-gap-section); padding-top: var(--space-7);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ---------- responsive doc primitives ----------
+   Four classes replace the inline `repeat(3, 1fr)` grids the chapters used to
+   carry. Every chapter's column count now comes from one place, so the two
+   wireframe chapters, the state matrix and the system specimens all break at
+   the same widths instead of four different ones. */
+.doc-grid-2, .doc-grid-3, .doc-grid-4 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+.doc-grid-3, .doc-grid-4 { gap: var(--space-6); }
+.doc-cols { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-6); }
+@media (min-width: 480px) {  /* --bp-sm */
+  .doc-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 640px) {
+  .doc-grid-2, .doc-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) {  /* --bp-md */
+  .doc-grid-3 { gap: var(--space-8); }
+  .doc-cols { flex-direction: row; }
+}
+@media (min-width: 1024px) {  /* --bp-lg */
+  .doc-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .doc-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* A plain vertical stack of cards. Not a grid — the gap is the only thing it
+   was ever declaring. */
+.doc-stack { display: grid; gap: var(--doc-gap-tight); }
+
+/* Rejected-versus-shipped, side by side. The comparison IS the point, so the
+   divider between them turns from a vertical rule into a horizontal one rather
+   than disappearing when the pair stacks. */
+.pairgrid { display: grid; grid-template-columns: minmax(0, 1fr); }
+/* Specimen strip inside a trade-off cell: the real control at real size, so
+   the two options can be compared by eye rather than by adjective. Recessed
+   surface marks it as a demo rather than something you can operate. */
+.diff-demo {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--space-4); min-height: var(--space-12);
+  padding: var(--space-5) var(--space-6); margin-bottom: var(--space-5);
+  background: var(--bg-inset); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.diff-demo .btn { pointer-events: none; }
+.pairgrid-cell { padding: var(--space-6) var(--space-7); }
+.pairgrid-cell:first-child { border-bottom: 1px solid var(--border-subtle); }
+@media (min-width: 640px) {
+  .pairgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pairgrid-cell:first-child { border-bottom: none; border-right: 1px solid var(--border-subtle); }
+}
+
+/* ---------- system specimen rows ----------
+   A specimen table's whole job is that the samples line up so they can be
+   compared, which needs fixed gutters — and there is no room for three fixed
+   columns at 390. So it stacks into name / specimen / use, which still reads
+   as a specimen because each row is separated by the same hairline. */
+.specrow {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3);
+  padding: var(--space-6) var(--space-7);
+}
+.specrow-k { color: var(--fg-tertiary); }
+/* A row of specimen tiles runs the full measure of the chapter, so its first
+   and last tile sit ON the page gutter — and a centred tooltip on either is
+   half off the screen at 390. The two end tiles open from their own outer edge
+   instead; every tile between them stays centred. */
+.specimens > .tip:first-child::after { left: 0; translate: none; }
+.specimens > .tip:last-child::after { left: auto; right: 0; translate: none; }
+
+/* The space ruler's label column. Fixed at every width — the whole point of the
+   ruler is that the bars start on one line so their lengths can be compared,
+   and "space-1" and "space-13" are not the same number of characters. */
+.ruler-k { width: 66px; flex: none; color: var(--fg-tertiary); }
+.specrow-use { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary); }
+@media (min-width: 768px) {  /* --bp-md */
+  .specrow {
+    grid-template-columns: 110px minmax(0, 1fr) 190px;
+    gap: var(--space-8); align-items: baseline;
+    padding: var(--space-5) var(--space-7);
+  }
+  .specrow-use { text-align: right; }
+}
+
+/* Definition list used on Context / Flow / System. Stacks on a phone: a 280px
+   term column next to a 78px value column is not a definition list, it is two
+   ransom notes. */
+.defrow { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: var(--space-6) 0; border-top: 1px solid var(--border-subtle); }
+.defrow-t { font-size: var(--text-md); line-height: var(--lh-md); font-weight: var(--weight-semibold); }
+.defrow-b { font-size: var(--text-md); line-height: var(--lh-md); color: var(--fg-secondary); }
+@media (min-width: 768px) {  /* --bp-md */
+  .defrow { grid-template-columns: 280px minmax(0, 1fr); gap: var(--space-8); }
+}
+
+/* 1px gap over a border-coloured backdrop draws hairline rules between cells. */
+.metagrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--border-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+@media (min-width: 480px) { .metagrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }   /* --bp-sm */
+@media (min-width: 1024px) { .metagrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }  /* --bp-lg */
 .metacell { background: var(--bg-surface); padding: var(--space-6) var(--space-7); }
-.metacell .k { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--fg-tertiary); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); }
+.metacell .k { font-size: var(--text-2xs); line-height: var(--lh-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--fg-tertiary); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); }
 .metacell .v { font-size: var(--text-md); line-height: var(--lh-md); }
 
 /* ===================== STATE MATRIX ===================== */
-.matrix { display: grid; gap: var(--space-6); }
-.matrix-row-label { display: flex; align-items: center; gap: var(--space-4); margin: var(--space-10) 0 var(--space-2); }
+/* A matrix Row is a doc section, so it takes the section gap, and its label
+   takes the heading → sub-line gap. */
+.matrix { display: grid; gap: var(--doc-gap-section); margin-top: var(--doc-gap-section); }
+/* Baseline, not centre: the row index is a word set beside the title, so the
+   two sit on one line of type. Centred, the 11px index floated at the
+   heading's mid-height and read as a stray tick. */
+.matrix-row-label { display: flex; align-items: baseline; gap: var(--space-4); margin: 0 0 var(--space-3); }
+.matrix-row-label .mono { font-size: var(--text-base); line-height: var(--lh-base); }
 .cell {
   background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
   overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-1);
 }
 .cell-head { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--space-3); justify-content: space-between; }
-.cell-name { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
-.cell-canvas { padding: var(--space-5); background: var(--bg-canvas); flex: 1; min-height: 128px; display: flex; flex-direction: column; justify-content: center; }
+.cell-name { font-size: var(--text-sm); line-height: var(--lh-sm); font-weight: var(--weight-semibold); }
+/* The 128px floor exists to keep every tile in a ROW the same height whatever
+   it holds. Stacked one-up on a phone there is no row to match, so the floor
+   stops being alignment and becomes 60px of empty canvas around a single field
+   row — it comes back when the grid does. */
+.cell-canvas { padding: var(--space-5); background: var(--bg-canvas); flex: 1; display: flex; flex-direction: column; justify-content: center; }
+@media (min-width: 640px) { .cell-canvas { min-height: 128px; } }
 .cell-note { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--border-subtle); font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--fg-tertiary); }
 
 /* ===================== SPEC / ANNOTATION ===================== */
 .spec-pin {
-  position: absolute; width: 18px; height: 18px; border-radius: var(--radius-full);
-  background: var(--signal-600); color: #fff; display: grid; place-items: center;
-  font-size: 10px; font-weight: var(--weight-bold); box-shadow: var(--shadow-2); z-index: 5;
+  position: absolute; width: var(--control-h-2xs); height: var(--control-h-2xs); border-radius: var(--radius-full);
+  background: var(--coach-solid); color: var(--coach-fg); display: grid; place-items: center;
+  font-size: var(--text-2xs); line-height: var(--lh-2xs); font-weight: var(--weight-bold); box-shadow: var(--shadow-2); z-index: 5;
 }
+
+/* =========================================================
+   VARIANT EXPLORER — layouts B & C, FAB, coach marks
+   ========================================================= */
+
+/* A COLUMN, not a plain block, and that is what makes the tour invite honest on
+   a phone: the invite is a flex sibling of the console rather than a fixed
+   overlay, so it takes its own band of the screen and the console gets what is
+   left. Nothing is ever covered by it. The shell below is the only in-flow
+   child at every other width — the FAB, the coach layer and the toast are all
+   fixed and out of flow — so this changes nothing above md. */
+.explorer {
+  position: relative;
+  display: flex; flex-direction: column;
+  height: calc(100dvh - var(--case-chrome-h));
+}
+.explorer > .shell { height: auto; flex: 1; min-height: 0; }
+.explorer[data-density="compact"] {
+  /* Compact = every gutter steps down one rung of the same 4pt scale. */
+  --space-6: 8px; --space-7: 12px; --space-8: 16px;
+}
+
+/* ---------- B · decision first ----------
+   The rail lies down below xl. It is eight faces and nothing else, so as a
+   horizontal strip it costs one 48px band and still shows every caller — which
+   is more than the vertical rail manages on a 390px-tall content area. */
+.rail {
+  width: var(--rail-w); flex: none; display: flex; flex-direction: row; align-items: center;
+  gap: var(--space-4); padding: var(--space-5) var(--space-6);
+  /* Wraps rather than scrolls. An overflow container clips its own children's
+     tooltips and the flag dot that hangs off each avatar — and with a fixed
+     roster this never needed to scroll in the first place. */
+  flex-wrap: wrap; overflow: visible;
+  background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle);
+}
+.rail > * { flex: none; }
+/* Same reason as .chips: the avatars' expanded hit areas need the room. */
+@media (pointer: coarse) { .rail { gap: var(--space-5); } }
+@media (min-width: 1280px) {  /* --bp-xl */
+  .rail {
+    flex-direction: column; padding: var(--space-6) 0;
+    overflow: visible;   /* same reason as the base rule — tooltips open outward */
+    border-bottom: none; border-right: 1px solid var(--border-subtle);
+  }
+}
+.rail-item {
+  position: relative; padding: var(--space-1); border-radius: var(--radius-full);
+  border: var(--space-1) solid transparent; transition: border-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .rail-item:hover { border-color: var(--border-strong); } }
+.rail-item[data-selected="true"] { border-color: var(--accent-bg); }
+.rail-item[data-flag="true"]::after {
+  content: ''; position: absolute; top: 0; right: 0; width: var(--space-4); height: var(--space-4);
+  border-radius: var(--radius-full); background: var(--conf-low-solid); border: var(--space-1) solid var(--bg-surface);
+}
+
+.decision-wrap { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; display: flex; justify-content: center; padding: var(--space-7) var(--space-6) var(--space-12); }
+.decision { width: var(--decision-w); max-width: 100%; display: flex; flex-direction: column; gap: var(--space-6); }
+/* Nothing in this column shrinks — .decision-wrap is the scroller.
+   Without this the two <details> at the bottom collapsed to their 2px borders:
+   `overflow: hidden` zeroes a flex item's automatic minimum size, so
+   `min-height: auto` stopped protecting them and the column squeezed them out
+   the moment its content was taller than the viewport. */
+.decision > * { flex: none; }
+@media (min-width: 768px) {  /* --bp-md */
+  .decision-wrap { padding: var(--space-10) var(--space-8) var(--space-13); }
+  .decision { gap: var(--space-7); }
+}
+
+.hero {
+  /* The biggest surface on the screen, so it is the one that must NOT be
+     tinted: an amber wash behind a $89.40 headline drags the whole decision
+     down to the contrast of the tint. White tile, and the "Needs a person"
+     badge inside it does the work the background used to do badly. */
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl); background: var(--bg-surface);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-7);
+}
+@media (min-width: 768px) { .hero { padding: var(--space-9); } }  /* --bp-md */
+/* The hero's three buttons and the keyboard legend share one row on a desktop.
+   On a phone the legend is a lie (there is no keyboard) and the buttons want
+   the full width each, so the row becomes a stack and the legend goes away. */
+.hero-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-4); }
+/* Same reason as .chips and .rail: these are the only full-width buttons in the
+   app that STACK, and once each one carries a 44px hit area an 8px gutter puts
+   Approve and Deny four pixels into each other. */
+@media (pointer: coarse) { .hero-actions { gap: var(--space-6); } }
+.hero-actions .btn { width: 100%; }
+.hero-keys { display: none; }
+@media (min-width: 768px) {  /* --bp-md */
+  .hero-actions { flex-direction: row; align-items: center; }
+  .hero-actions .btn { width: auto; }
+  .hero-keys { display: flex; }
+}
+.hero-amount {
+  font-size: var(--text-3xl); line-height: var(--lh-3xl); font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+/* A 44px hit area (see TOUCH TARGETS in ds.css) inside a 6px gutter is really a
+   44px target with a coin-toss down the middle. The gap grows to match so
+   neighbouring chips never fight over a tap. */
+@media (pointer: coarse) { .chips { gap: var(--space-8); } }
+.chip {
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-full);
+  border: 1px solid var(--border-default); background: var(--bg-surface);
+  font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-secondary);
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .chip:hover { border-color: var(--border-strong); } }
+.chip b { color: var(--fg-primary); font-weight: var(--weight-medium); }
+/* Band shows in the ring and the number, not behind the value you are reading. */
+.chip[data-band="low"]    { border-color: var(--conf-low-solid); }
+.chip[data-band="medium"] { border-color: var(--conf-medium-solid); }
+.chip[data-band="low"] .chip-pct    { color: var(--conf-low-fg); }
+.chip[data-band="medium"] .chip-pct { color: var(--conf-medium-fg); }
+.chip[data-open="true"] { box-shadow: var(--ring-accent); border-color: var(--accent-bg); }
+
+.disclosure {
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-surface);
+  overflow: hidden;
+}
+.disclosure summary {
+  padding: var(--space-6) var(--space-7); cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: var(--space-4);
+  font-size: var(--text-md); line-height: var(--lh-md); font-weight: var(--weight-medium);
+}
+.disclosure summary::-webkit-details-marker { display: none; }
+@media (hover: hover) { .disclosure summary:hover { background: var(--bg-surface-alt); } }
+.disclosure[open] summary { border-bottom: 1px solid var(--border-subtle); }
+/* 380px caps the fold-out so the page never scrolls twice. */
+.disclosure .disclosure-body { padding: var(--space-6) var(--space-7); max-height: 380px; overflow-y: auto; }
+
+/* ---------- C · triage table ---------- */
+.triage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.bulkbar {
+  flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle);
+}
+/* The sentence explaining what bulk approve refuses to touch is the reason the
+   bar is trustworthy — it gets its own line rather than being the thing that
+   truncates. */
+.bulkbar-note { flex: 1 1 100%; order: 3; font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary); }
+.triage-scroll { flex: 1; overflow: auto; min-height: 0; }
+/* The triage footer is a page-level bar, so it takes the page gutter the bulk
+   bar and table columns use — not the inspector's tighter panel gutter. */
+.triage > .actionbar { padding-left: var(--space-6); padding-right: var(--space-6); }
+/* A button that offers to list the keyboard shortcuts, on a device with no
+   keyboard. It also took half the footer row at 390, pushing the one line that
+   IS useful there — how many calls can be cleared unread — onto two. */
+@media (pointer: coarse) { .triage-keys { display: none; } }
+@media (min-width: 768px) {  /* --bp-md */
+  .bulkbar { flex-wrap: nowrap; padding: var(--space-5) var(--space-8); }
+  .bulkbar-note { flex: 0 1 auto; order: 0; }
+  .triage > .actionbar { padding-left: var(--space-8); padding-right: var(--space-8); }
+}
+
+/* ---------- the table, and its phone form ----------
+   A seven-column table cannot be made to work at 390 by scrolling it sideways:
+   the row is the unit of work, and a unit of work you can only ever see a third
+   of is not one. Below md every row becomes a CARD — the same cells, relabelled
+   from `data-label` and stacked — and the expander opens inside it exactly as
+   it does in the table. Same markup, same state, same interaction. */
+.ttable { width: 100%; border-collapse: collapse; font-size: var(--text-md); line-height: var(--lh-md); }
+.ttable thead { display: none; }
+.ttable, .ttable tbody, .ttable tr, .ttable td { display: block; }
+.ttable tbody tr.trow {
+  cursor: pointer; position: relative;
+  margin: 0 var(--space-6) var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.ttable tbody tr.trow:first-child { margin-top: var(--space-5); }
+.ttable tbody tr.trow[data-open="true"] { background: var(--bg-selected); border-color: var(--accent-border); margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.ttable td {
+  padding: var(--space-2) 0; border-bottom: none;
+  display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: var(--space-5); align-items: center;
+}
+/* The label the phone card needs and the desktop header row already carries. */
+.ttable td::before {
+  content: attr(data-label);
+  /* The sans is stated, not inherited: the Money cell is `.mono`, and a mono
+     label beside a sans one broke the column of overlines. */
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs); line-height: var(--lh-2xs); font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--fg-tertiary);
+}
+/* Caller is the card's title, so it loses its label and gains the type. */
+.ttable td[data-label="Caller"] { grid-template-columns: minmax(0, 1fr); padding-bottom: var(--space-4); font-size: var(--text-base); }
+.ttable td[data-label="Caller"]::before { display: none; }
+.ttable td[data-label="Pick"] { position: absolute; top: var(--space-5); right: var(--space-6); padding: 0; display: block; }
+.ttable td[data-label="Pick"]::before { display: none; }
+.texpand { display: block; }
+.texpand td {
+  background: var(--bg-inset); padding: 0; display: block;
+  margin: 0 var(--space-6) var(--space-5);
+  border: 1px solid var(--accent-border); border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.texpand td::before { display: none; }
+.texpand-inner { padding: var(--space-6); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+
+@media (min-width: 768px) {  /* --bp-md — a real table again */
+  .ttable { display: table; }
+  .ttable thead { display: table-header-group; }
+  .ttable tbody { display: table-row-group; }
+  .ttable tr { display: table-row; }
+  .ttable td { display: table-cell; }
+  .ttable th {
+    position: sticky; top: 0; z-index: 2; text-align: left;
+    padding: var(--space-4) var(--space-8);
+    background: var(--bg-surface); border-bottom: 1px solid var(--border-default);
+    font-size: var(--text-2xs); line-height: var(--lh-2xs); font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--fg-tertiary);
+    white-space: nowrap;
+  }
+  /* --space-8 gutter so column 1 lines up with the bulk bar directly above. */
+  .ttable td { padding: var(--space-5) var(--space-8); border-bottom: 1px solid var(--border-subtle); vertical-align: middle; }
+  .ttable td::before, .ttable td[data-label="Caller"]::before { content: none; }
+  .ttable td[data-label="Caller"] { font-size: inherit; }
+  /* The phone rule pins this cell to the card's top-right corner with
+     `position: absolute; display: block; padding: 0`. Only `position` was
+     being undone here, so on desktop the checkbox column kept zero padding
+     AND stopped being a table-cell — which is why `vertical-align: middle`
+     had no effect and every checkbox sat jammed against the top of its row. */
+  .ttable td[data-label="Pick"] {
+    position: static; display: table-cell;
+    padding: var(--space-5) 0 var(--space-5) var(--space-8);
+  }
+  .ttable tbody tr.trow {
+    margin: 0; padding: 0; background: none; border: none;
+    border-radius: 0; box-shadow: none;
+  }
+  .ttable tbody tr.trow[data-open="true"] { background: var(--bg-selected); }
+  .ttable tbody tr.trow[data-open="true"] td { border-bottom-color: transparent; }
+  @media (hover: hover) { .ttable tbody tr.trow:hover { background: var(--bg-surface-alt); } }
+  .texpand { display: table-row; }
+  .texpand td {
+    display: table-cell; margin: 0; border: none;
+    border-bottom: 1px solid var(--border-default); border-radius: 0;
+  }
+  .texpand-inner { padding: var(--space-8); gap: var(--space-9); }
+}
+@media (min-width: 1024px) {  /* --bp-lg — the two-up expander returns */
+  .texpand-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.checkbox {
+  width: var(--checkbox-sz); height: var(--checkbox-sz); border-radius: var(--radius-xs);
+  border: 1px solid var(--border-strong); background: var(--bg-surface);
+  display: grid; place-items: center; color: transparent; flex: none;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.checkbox[aria-checked="true"] { background: var(--accent-bg); border-color: var(--accent-bg); color: var(--fg-on-accent); }
+.checkbox:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---------- live text shimmer ----------
+   For text that means "this is still happening" — a transcript arriving, a
+   call in progress. A slow highlight travels through the words rather than the
+   whole line blinking: blinking is an alarm, this is a pulse. The gradient is
+   clipped to the glyphs, so it reads as the text being lit from behind. */
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--fg-tertiary) 0%, var(--fg-tertiary) 40%,
+    var(--fg-primary) 50%,
+    var(--fg-tertiary) 60%, var(--fg-tertiary) 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  animation: shimmer 2.6s var(--ease-in-out) infinite;
+}
+@keyframes shimmer {
+  from { background-position: 160% 0 }
+  to   { background-position: -60% 0 }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer { animation: none; background: none; color: var(--fg-tertiary); }
+}
+
+/* ---------- FAB ---------- */
+.fab-layer {
+  /* Bottom gap clears the action bar pinned to this same corner on layouts A
+     and C — at --space-9 the FAB sat on top of the primary button. On a phone
+     that bar is full-width and sits on the home indicator, so the clearance
+     has to add the safe-area inset on top of the same gap. */
+  position: fixed; right: var(--space-6); z-index: 110;
+  bottom: calc(var(--space-13) + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-5);
+  max-width: calc(100vw - var(--space-6) * 2);
+}
+/* Tapping anywhere else closes the panel — a phone has no Escape key and no
+   pointer to move away. Below the FAB layer, above everything it covers. */
+.fab-dismiss { position: fixed; inset: 0; z-index: 109; border: none; width: 100%; background: transparent; }
+@media (min-width: 768px) { .fab-layer { right: var(--space-9); } }  /* --bp-md */
+.fab {
+  width: var(--fab-sz); height: var(--fab-sz); border-radius: var(--radius-full);
+  background: var(--accent-bg); color: var(--fg-on-accent);
+  display: grid; place-items: center; box-shadow: var(--shadow-3);
+  transition: transform var(--dur-base) var(--ease-spring), box-shadow var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .fab:hover { transform: translateY(-2px); box-shadow: var(--shadow-4); } }
+.fab[data-attention="true"]::before {
+  content: ''; position: absolute; inset: calc(var(--space-3) * -1); border-radius: var(--radius-full);
+  border: var(--space-1) solid var(--accent-bg); opacity: .5;
+  animation: ring 2s var(--ease-out) infinite;
+}
+@keyframes ring { 0% { transform: scale(.86); opacity: .75 } 70% { opacity: .12 } 100% { transform: scale(1.5); opacity: 0 } }
+
+.fab-panel {
+  width: min(var(--fab-panel-w), calc(100vw - var(--space-6) * 2));
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-4);
+  /* Never taller than what is left of the screen above the FAB. */
+  max-height: calc(100dvh - var(--case-chrome-h) - var(--fab-sz) - var(--space-13) - env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain;
+  animation: fade-up var(--dur-base) var(--ease-out);
+}
+.fab-sec { padding: var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.fab-sec:last-child { border-bottom: none; }
+.fab-choice {
+  width: 100%; display: flex; align-items: flex-start; gap: var(--space-4);
+  padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
+  border: 1px solid transparent; text-align: left;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .fab-choice:hover { background: var(--bg-hover); } }
+.fab-choice[data-active="true"] { border-color: var(--accent-border); background: var(--accent-bg-subtle); }
+.fab-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-5); }
+
+/* ---------- Coach marks ---------- */
+.coach-layer { position: fixed; inset: 0; z-index: 130; pointer-events: none; }
+/* The tour invite and the pins hint. Layout lives here, not inline, so the
+   rule below can take it away. */
+.explorer-float { display: flex; align-items: center; }
+
+/* ---------- tour invite ----------
+   A floating pill on a desktop; a bar that OWNS ITS OWN BAND on a phone.
+
+   It used to be fixed at both sizes, and on a phone that meant it had to land
+   on top of something: one bar up it blanked the workspace switcher and the
+   menu button, one bar down it blanked the page header — and on layout C the
+   bulk-approve bar, which is the very control the tour's own first step points
+   at. There is no free 56px band on a 390px screen, so it stops looking for
+   one: `.explorer` is a flex column and this is its first child, above the
+   console rather than over it. The console gives up the height, gets it back
+   the moment the invite is dismissed, and nothing is ever hidden.
+
+   Above the chapter bar and below the product's own top bar is also where it
+   BELONGS: it is an invitation to tour the case study, not a message from the
+   product, so it reads as the outermost layer of chrome. */
+.tour-invite {
+  order: -1; flex: none; z-index: 125;
+  margin: var(--space-4) var(--space-4) 0;
+  flex-wrap: wrap; gap: var(--space-4);
+  background: var(--bg-inverse); color: var(--fg-inverse);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-3);
+  font-size: var(--text-md); line-height: var(--lh-md);
+}
+.tour-invite-copy { flex: 1; min-width: 0; }
+/* Its dismiss sits on the inverse surface, so it cannot take the icon button's
+   normal hover pair — --fg-primary is the same colour as the pill it is on. */
+.tour-invite .iconbtn { color: var(--fg-inverse-secondary); }
+@media (hover: hover) {
+  .tour-invite .iconbtn:hover { background: transparent; color: var(--fg-inverse); }
+}
+@media (min-width: 768px) {  /* --bp-md — back to a pill that floats */
+  .tour-invite {
+    position: fixed; order: 0; margin: 0;
+    top: calc(var(--case-chrome-h) + var(--space-6));
+    left: 50%; right: auto; transform: translateX(-50%);
+    flex-wrap: nowrap; gap: var(--space-5);
+    border-radius: var(--radius-full);
+    max-width: calc(100vw - var(--space-9) * 2);
+  }
+  .tour-invite-copy { flex: none; }
+}
+
+/* ---------- pins hint ----------
+   Every word of it is about keys — "? for the tour", "H hides these" — so on a
+   touch device it is not merely cramped, it is untrue. The FAB panel carries
+   the same two controls as buttons. */
+.pins-hint { display: none; }
+@media (min-width: 768px) and (hover: hover) {  /* --bp-md */
+  .pins-hint {
+    display: flex; position: fixed; z-index: 110;
+    left: var(--space-9); bottom: var(--space-13);
+    gap: var(--space-4);
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full); box-shadow: var(--shadow-2);
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-tertiary);
+  }
+}
+/* Everything that floats over the explorer sits above the drawer in the stack.
+   A modal owns the screen: the pins annotate a page you can no longer see, and
+   the layout switcher is not a decision to make mid-approval. */
+.explorer:has(.scrim) .coach-layer,
+.explorer:has(.scrim) .fab-layer,
+.explorer:has(.scrim) .explorer-float { display: none; }
+.coach-mark {
+  /* Same diameter as the brand mark — the system has one round chip size. */
+  position: absolute; width: var(--mark-sz); height: var(--mark-sz); border-radius: var(--radius-full);
+  background: var(--coach-solid); color: var(--coach-fg); display: grid; place-items: center;
+  font-size: var(--text-xs); line-height: var(--lh-xs); font-weight: var(--weight-bold);
+  box-shadow: 0 0 0 3px var(--bg-surface), var(--shadow-2);
+  pointer-events: auto; cursor: pointer; transform: translate(-50%, -50%);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .coach-mark:hover { transform: translate(-50%, -50%) scale(1.12); } }
+/* EVERY pin glows, not just the open one — the glow is what says "this is a
+   thing you can press".
+
+   A glow that loops, not a ring that fires. An expanding ring is an EVENT: it
+   happens, it ends, and six of them going off around the page read as alerts
+   competing for you. A glow just sits there and breathes, so the pins stay
+   present without ever demanding anything. Slow, and eased in and out at both
+   ends, because a linear fade reads mechanical rather than alive.
+
+   Lightly staggered so they are not one organism inhaling together. */
+.coach-mark::after {
+  content: ''; position: absolute; inset: -2px; border-radius: var(--radius-full);
+  box-shadow: 0 0 var(--space-4) var(--space-1) var(--coach-solid);
+  animation: coach-glow 3.4s var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i, 0) * -0.4s);
+  pointer-events: none;
+}
+@keyframes coach-glow {
+  /* All the way out, and a beat of nothing, before it comes back. Floating the
+     low end just above zero left a permanent faint ring, which read as a
+     border the pin was wearing rather than something that breathes. */
+  0%   { opacity: 0 }
+  45%  { opacity: .9 }
+  80%  { opacity: 0 }
+  100% { opacity: 0 }
+}
+.coach-mark[data-active="true"] { background: var(--bg-inverse); color: var(--fg-inverse); }
+/* The open pin has a card pointing straight at it, so it stops asking. */
+.coach-mark[data-active="true"]::after { animation: none; opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .coach-mark::after { animation: none; opacity: .5; }
+}
+.coach-ring {
+  /* 9999px spread paints the whole page as a scrim, cut out by this box. */
+  position: absolute; border: var(--space-1) solid var(--accent-bg); border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 9999px var(--bg-scrim);
+  pointer-events: none;
+  /* Named properties, not `all` — `all` also animates the 9999px scrim shadow,
+     which is what made the whole page flicker grey on every Next. */
+  transition: top var(--dur-slow) var(--ease-out), left var(--dur-slow) var(--ease-out),
+              width var(--dur-slow) var(--ease-out), height var(--dur-slow) var(--ease-out);
+}
+.coach-card {
+  position: absolute; width: var(--coach-card-w); pointer-events: auto;
+  background: var(--bg-surface); border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-4);
+  /* Padding lives on .coach-inner, not here: the card's height is set from the
+     inner box's measured height so it can ANIMATE between steps instead of
+     snapping when the body copy is a line longer. */
+  overflow: hidden;
+  animation: fade-up var(--dur-base) var(--ease-out);
+  /* The card GLIDES to the next step while its words cross-fade (see
+     .coach-body). Snapping the box and swapping the text in the same frame is
+     what made Next feel abrupt: two changes, no continuity between them.
+     Slightly slower than the ring so the spotlight arrives first and the
+     explanation catches up — which is the order you actually read them in. */
+  transition: top var(--dur-slow) var(--ease-spring), left var(--dur-slow) var(--ease-spring),
+              height var(--dur-slow) var(--ease-out);
+}
+.coach-inner { padding: var(--space-6); }
+/* Re-keyed per step, so React remounts it and the swap replays. The words
+   enter from the side you are travelling FROM — Next brings them in from the
+   right, Back from the left — so the two directions feel like different moves
+   rather than the same fade played twice. */
+.coach-body { animation: coach-swap-fwd var(--dur-base) var(--ease-out); }
+[data-dir="back"] .coach-body { animation-name: coach-swap-back; }
+@keyframes coach-swap-fwd  { from { opacity: 0; transform: translateX(10px) }  to { opacity: 1; transform: none } }
+@keyframes coach-swap-back { from { opacity: 0; transform: translateX(-10px) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) {
+  .coach-card { transition: none }
+  .coach-body { animation: none }
+}
+/* ---------- docked coach card (phone) ----------
+   Below md there is no room beside a target for a 296px card, so the card docks
+   to whichever HALF of the screen the target is NOT in. That is the guarantee:
+   the card can never cover the thing it is pointing at, whatever the target is
+   or wherever the page has been scrolled. */
+.coach-card[data-dock] {
+  position: fixed; left: 0; right: 0; width: auto;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  border-left: none; border-right: none;
+  padding: var(--space-7) var(--space-7) max(var(--space-7), env(safe-area-inset-bottom));
+}
+.coach-card[data-dock="bottom"] { bottom: 0; top: auto; }
+.coach-card[data-dock="top"] {
+  top: 0; bottom: auto;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  padding-bottom: var(--space-7);
+}
+.coach-card h4 { font-size: var(--text-base); line-height: var(--lh-base); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); }
+.coach-card p { font-size: var(--text-md); line-height: var(--lh-md); color: var(--fg-secondary); }
+.coach-dots { display: flex; gap: var(--space-2); }
+.coach-dots i { width: var(--dot-sz); height: var(--dot-sz); border-radius: var(--radius-full); background: var(--border-strong); display: block; }
+.coach-dots i { transition: width var(--dur-base) var(--ease-spring), background var(--dur-base) var(--ease-out); }
+/* The current dot stretches rather than just changing colour — position in a
+   sequence is a length, and length is easier to read than hue. */
+.coach-dots i[data-on="true"] { background: var(--accent-bg); width: var(--space-7); }

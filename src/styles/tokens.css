@@ -41,6 +41,10 @@
   --red-50:    #fdeeee; --red-100:   #fad9d9; --red-500:   #dc4040; --red-600:   #bd2c2c; --red-700:   #992222;
   --blue-50:   #eaf3fe; --blue-100:  #d3e6fd; --blue-500:  #2b7fe0; --blue-600:  #1f66bb; --blue-700:  #1a5296;
   --violet-50: #f4eefe; --violet-100:#e7dcfd; --violet-500:#8b5cf0; --violet-600:#7340d6;
+  /* Cyan exists for ONE job: the annotation layer that sits on top of the
+     product. It is never a product state, so a numbered pin can never be
+     mistaken for something the software is telling you. */
+  --cyan-50:   #e6f7fb; --cyan-100:  #c5ecf5; --cyan-500:  #0e9ab8; --cyan-600:  #0b7d95;
 
   /* ---------- TIER 1 · SPACE (4pt base) ---------- */
   --space-0: 0px;   --space-1: 2px;  --space-2: 4px;  --space-3: 6px;
@@ -48,7 +52,33 @@
   --space-8: 20px;  --space-9: 24px; --space-10: 32px; --space-11: 40px;
   --space-12: 48px; --space-13: 64px;
 
+  /* ---------- TIER 1 · BREAKPOINTS ----------
+     Named so the ladder has one vocabulary. CSS cannot read a custom property
+     inside a media query, so these are the DECLARATION of the scale and every
+     `@media (min-width: …)` in app.css / ds.css quotes the matching number in a
+     comment. Changing a number here means changing it there — the tokens exist
+     so there is one place to look up what "md" means, not to be substituted.
+
+       xs   390   iPhone baseline — the base rules, no query at all
+       sm   480   large phone / small tablet — 2-up grids start
+       md   768   tablet portrait — console goes 2-column, nav becomes a drawer
+       lg  1024   tablet landscape — nav rejoins the layout as a real column
+       xl  1280   desktop — the third console column (inspector) rejoins
+       2xl 1440   design width — full-fat column widths, unchanged from today */
+  --bp-xs: 390px;  --bp-sm: 480px;  --bp-md: 768px;
+  --bp-lg: 1024px; --bp-xl: 1280px; --bp-2xl: 1440px;
+
+  /* Touch minimum. Every interactive target reaches this via pseudo-element hit
+     expansion on coarse pointers — visual size never changes. */
+  --touch-min: 44px;
+
   /* ---------- TIER 1 · RADIUS ---------- */
+  /* 3xs is the hairline step — waveform sticks only. They are 3px on a 1280
+     screen and 8px on a wide one, and 2px would round the narrow end of that
+     range into a blob. 2xs is for meter bars, schematic rules and anything
+     else that is 4px at every size. */
+  --radius-3xs: 1px;
+  --radius-2xs: 2px;
   --radius-xs: 3px; --radius-sm: 5px; --radius-md: 7px;
   --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px; --radius-full: 999px;
 
@@ -56,18 +86,31 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* The first seven steps are FIXED. They are UI type — a 13px control label
+     has to stay 13px on a phone or the console stops being a console, and
+     --text-lg is the case-study body, held at 16px so iOS never zooms a focused
+     input or shrinks long-form reading below the legibility floor.
+
+     The four DISPLAY steps are FLUID. Each clamp interpolates between its
+     small-screen value at 390px and its design value at 1024px, so a 40px page
+     title lands at 28px on an iPhone instead of eating four lines. Line height
+     is clamped on the same slope so leading tracks size exactly. */
   --text-2xs: 10px;  --lh-2xs: 14px;
   --text-xs:  11px;  --lh-xs:  16px;
   --text-sm:  12px;  --lh-sm:  18px;
   --text-md:  13px;  --lh-md:  20px;
   --text-base:14px;  --lh-base:21px;
   --text-lg:  16px;  --lh-lg:  24px;
-  --text-xl:  19px;  --lh-xl:  27px;
-  --text-2xl: 23px;  --lh-2xl: 30px;
-  --text-3xl: 30px;  --lh-3xl: 38px;
-  --text-4xl: 40px;  --lh-4xl: 46px;
+  --text-xl:  clamp(17px, 15.77px + 0.32vw, 19px);  --lh-xl:  clamp(25px, 23.77px + 0.32vw, 27px);
+  --text-2xl: clamp(20px, 18.15px + 0.47vw, 23px);  --lh-2xl: clamp(27px, 25.15px + 0.47vw, 30px);
+  --text-3xl: clamp(24px, 20.31px + 0.95vw, 30px);  --lh-3xl: clamp(30px, 25.08px + 1.26vw, 38px);
+  --text-4xl: clamp(28px, 20.62px + 1.89vw, 40px);  --lh-4xl: clamp(34px, 26.62px + 1.89vw, 46px);
+
+  /* Long-form leading: --text-lg set for case-study body copy (16/26). */
+  --lh-prose: 26px;
 
   --weight-regular: 400; --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
+  --tracking-tighter: -0.028em; /* display only — 30px and up */
   --tracking-tight: -0.02em; --tracking-snug: -0.011em; --tracking-normal: 0em; --tracking-wide: 0.04em;
 
   /* ---------- TIER 1 · ELEVATION ---------- */
@@ -76,6 +119,8 @@
   --shadow-3: 0 8px 16px -4px rgba(14,19,25,.10), 0 20px 40px -8px rgba(14,19,25,.12), 0 0 0 1px rgba(14,19,25,.06);
   --shadow-4: 0 16px 32px -8px rgba(14,19,25,.14), 0 40px 72px -12px rgba(14,19,25,.18), 0 0 0 1px rgba(14,19,25,.07);
   --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--border-focus);
+  /* Soft accent halo — focused input, opened chip, "this one shipped" wire. */
+  --ring-accent: 0 0 0 3px var(--accent-bg-subtle);
 
   /* ---------- TIER 1 · MOTION ---------- */
   --ease-out: cubic-bezier(.16,1,.3,1);
@@ -101,9 +146,16 @@
   --fg-secondary: var(--ink-600);
   --fg-tertiary:  var(--ink-500);
   --fg-disabled:  var(--ink-400);
-  --fg-inverse:   var(--ink-0);
+  --fg-inverse:           var(--ink-0);   /* text on --bg-inverse */
+  --fg-inverse-secondary: var(--ink-400); /* muted text/icons on --bg-inverse */
+  --fg-on-accent:         var(--ink-0);   /* text on any solid fill: accent, danger, success */
   --fg-brand:     var(--signal-600);
   --fg-link:      var(--signal-600);
+  --fg-link-inverse: var(--signal-300);   /* link on --bg-inverse (toast undo) */
+  /* Success glyph on --bg-inverse. The normal --success-fg is tuned for a
+     light surface and drops to 2.4:1 on the inverse one, so it needs its own
+     step — same job as --fg-link-inverse. */
+  --fg-success-inverse: var(--green-500);
 
   --border-subtle:  var(--ink-150);
   --border-default: var(--ink-200);
@@ -139,9 +191,56 @@
   --conf-none-bg:     var(--ink-100);
   --conf-none-solid:  var(--ink-400);
 
-  /* ---------- TIER 2 · COMPONENT SIZING ---------- */
-  --control-h-xs: 22px; --control-h-sm: 26px; --control-h-md: 32px; --control-h-lg: 38px;
+  /* Meter TRACK — the unfilled bars. A tint of the band's own hue, never a
+     neutral grey: the meter has to read as one object with some segments
+     spent, not as coloured bars sitting next to foreign grey ones. */
+  --coach-solid: var(--cyan-500);
+  --coach-fg:    var(--ink-0);
+
+  --conf-high-track:   color-mix(in srgb, var(--conf-high-solid) 25%, transparent);
+  --conf-medium-track: color-mix(in srgb, var(--conf-medium-solid) 25%, transparent);
+  --conf-low-track:    color-mix(in srgb, var(--conf-low-solid) 25%, transparent);
+  --conf-none-track:   var(--ink-200);
+
+  /* ---------- TIER 2 · COMPONENT SIZING ----------
+     One height ladder for everything that reads as a control.
+     2xs confidence pill / switch track · xs badge, small avatar ·
+     sm icon button, avatar, segmented item · md button, input · lg hero button. */
+  --control-h-2xs: 18px; --control-h-xs: 20px; --control-h-sm: 26px;
+  --control-h-md: 32px;  --control-h-lg: 38px;
+  --dot-sz: 6px;         /* status dot, tour progress dot */
+  --switch-w: 30px;      /* track = 2xs height + travel */
+  --checkbox-sz: 16px;   /* a control, so compact density must NOT shrink it */
+  --mark-sz: 22px;       /* the round chip: brand mark and coach pin, one size */
+
+  /* Layout widths. Structural by nature — they set the columns of a desktop
+     console, so they are named here rather than repeated as raw px.
+
+     THE VALUES BELOW ARE THE DESIGN-WIDTH (2xl) VALUES. app.css owns the
+     responsive ladder and re-declares the handful that step down — see the
+     RESPONSIVE TOKEN LADDER block at the top of that file. Nothing else
+     redefines them, and components still only ever read the name. */
   --topbar-h: 52px; --pageheader-h: 60px; --nav-w: 216px; --inspector-w: 384px;
+  --case-chrome-h: 44px;   /* case-study chapter bar that wraps the product */
+  --queue-w: 344px;        /* review list — 2 lines of summary without wrapping */
+  --rail-w: 64px;          /* variant B avatar rail */
+  --decision-w: 680px;     /* variant B reading column */
+  --search-w: 340px;
+  --drawer-w: 468px;       /* quoted in the Trade-offs copy — keep in sync */
+  --modal-w: 460px;
+  --fab-sz: 52px; --fab-panel-w: 340px; --coach-card-w: 296px;
+  --fieldrow-label-w: 104px;  /* widest label ('Callback consent') + air */
+  --doc-w: 1240px;         /* case-study measure, shared by every chapter */
+
+  /* ---------- TIER 2 · CASE-STUDY VERTICAL RHYTHM ----------
+     The 48/32/12/6 ladder documented in app.css, named so it can step down as
+     one decision on a phone instead of 40 inline margins each guessing. */
+  --doc-gap-section: var(--space-12);  /* 48 — above any section heading */
+  --doc-gap-block:   var(--space-10);  /* 32 — lede → first unheaded block */
+  --doc-gap-tight:   var(--space-6);   /* 12 — heading → content, block → block */
+  --doc-gap-sub:     var(--space-3);   /*  6 — heading → its own sub-line */
+  --doc-pad-y: var(--space-13);        /* 64 — chapter top/bottom */
+  --doc-pad-x: var(--space-9);         /* 24 — chapter gutter */
 }
 
 /* =========================================================
@@ -161,11 +260,21 @@
 
   --fg-primary:   #eaeef4;
   --fg-secondary: var(--ink-400);
-  --fg-tertiary:  var(--ink-500);
+  /* Half a rung lighter than --ink-500, which is what light uses here. On a
+     dark surface --ink-500 lands on 3.73:1, and tertiary carries every
+     timestamp, field label and caption in the console. This is 4.8:1, and
+     still a clear step below --fg-secondary. Its own value for the same
+     reason --fg-primary and the border ramp have one: the light ramp does
+     not have a rung in the right place. */
+  --fg-tertiary:  #7d8a9c;
   --fg-disabled:  var(--ink-600);
-  --fg-inverse:   var(--ink-950);
+  --fg-inverse:           var(--ink-950);
+  --fg-inverse-secondary: var(--ink-500);
+  --fg-on-accent:         var(--ink-0);   /* solid fills stay dark-on-light-text */
   --fg-brand:     var(--signal-300);
   --fg-link:      var(--signal-300);
+  --fg-link-inverse: var(--signal-600);
+  --fg-success-inverse: var(--green-600);
 
   --border-subtle:  #232b35;
   --border-default: #2e3743;
@@ -178,16 +287,25 @@
   --accent-fg:        var(--signal-300);
   --accent-border:    rgba(99,102,232,.32);
 
-  --success-bg: rgba(18,160,106,.14); --success-fg: #4ecf9a; --success-border: rgba(18,160,106,.26);
-  --warning-bg: rgba(217,130,24,.14); --warning-fg: #e8a94e; --warning-border: rgba(217,130,24,.26);
-  --danger-bg:  rgba(220,64,64,.14);  --danger-fg:  #f08585; --danger-border:  rgba(220,64,64,.26);
-  --info-bg:    rgba(43,127,224,.14); --info-fg:    #6fb0f5; --info-border:    rgba(43,127,224,.26);
-  --ai-bg:      rgba(139,92,240,.15); --ai-fg:      #b291f7; --ai-border:      rgba(139,92,240,.28);
+  /* Solids now carry status ON a neutral tile (icons, borders), so on a dark
+     surface they need to be the light end of the ramp, not the dark end. */
+  --success-bg: rgba(18,160,106,.14); --success-fg: #4ecf9a; --success-border: rgba(18,160,106,.26); --success-solid: #2ec98a;
+  --warning-bg: rgba(217,130,24,.14); --warning-fg: #e8a94e; --warning-border: rgba(217,130,24,.26); --warning-solid: #e8a94e;
+  --danger-bg:  rgba(220,64,64,.14);  --danger-fg:  #f08585; --danger-border:  rgba(220,64,64,.26);  --danger-solid:  #ef6b6b;
+  --info-bg:    rgba(43,127,224,.14); --info-fg:    #6fb0f5; --info-border:    rgba(43,127,224,.26); --info-solid:    #6fb0f5;
+  --ai-bg:      rgba(139,92,240,.15); --ai-fg:      #b291f7; --ai-border:      rgba(139,92,240,.28); --ai-solid:      #a17ef5;
 
   --conf-high-fg:   #4ecf9a; --conf-high-bg:   rgba(18,160,106,.14);
   --conf-medium-fg: #e8a94e; --conf-medium-bg: rgba(217,130,24,.14);
   --conf-low-fg:    #f08585; --conf-low-bg:    rgba(220,64,64,.14);
   --conf-none-fg:   var(--ink-400); --conf-none-bg: rgba(255,255,255,.06);
+  /* A 25% tint disappears against a dark pill — the track needs more weight. */
+  --coach-solid: #1eb6d6; --coach-fg: var(--ink-950);
+
+  --conf-high-track:   color-mix(in srgb, var(--conf-high-solid) 36%, transparent);
+  --conf-medium-track: color-mix(in srgb, var(--conf-medium-solid) 36%, transparent);
+  --conf-low-track:    color-mix(in srgb, var(--conf-low-solid) 36%, transparent);
+  --conf-none-track:   rgba(255,255,255,.14);
 
   --shadow-1: 0 1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05);
   --shadow-2: 0 2px 4px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06);

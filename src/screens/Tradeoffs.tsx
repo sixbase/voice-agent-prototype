@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
-import { Badge, Button, Icon, SectionLabel } from '../ds'
+import { Badge, Button, ConfidencePill, Icon, SectionLabel } from '../ds'
 
+/* Same illustration primitive as Flow.tsx: raw px here are wireframe geometry
+   drawn at ~1/4 scale, not product chrome. Colour + radius come from tokens. */
 const bar = (w: number | string, h = 6, c = 'var(--border-default)') => (
-  <div style={{ width: w, height: h, borderRadius: 2, background: c }} />
+  <div style={{ width: w, height: h, borderRadius: 'var(--radius-2xs)', background: c }} />
 )
 
 function Wire({ children, verdict }: { children: ReactNode; verdict: 'rejected' | 'shipped' }) {
@@ -12,11 +14,11 @@ function Wire({ children, verdict }: { children: ReactNode; verdict: 'rejected' 
         height: 190, background: 'var(--bg-surface)',
         border: `1px solid ${verdict === 'shipped' ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
         borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex',
-        boxShadow: verdict === 'shipped' ? '0 0 0 3px var(--accent-bg-subtle)' : 'var(--shadow-1)',
+        boxShadow: verdict === 'shipped' ? 'var(--ring-accent)' : 'var(--shadow-1)',
       }}>{children}</div>
-      <div style={{ position: 'absolute', top: 8, right: 8 }}>
+      <div style={{ position: 'absolute', top: 'var(--space-4)', right: 'var(--space-4)' }}>
         {verdict === 'shipped'
-          ? <Badge tone="accent" icon="check" solid>Shipped</Badge>
+          ? <Badge tone="accent" icon="check" solid>Chosen</Badge>
           : <Badge tone="neutral" icon="x">Rejected</Badge>}
       </div>
     </div>
@@ -25,92 +27,134 @@ function Wire({ children, verdict }: { children: ReactNode; verdict: 'rejected' 
 
 const OPTIONS = [
   {
-    name: 'A · Full-page approval',
+    name: 'A · A whole new page',
     verdict: 'rejected' as const,
-    claim: 'Give the approval its own route. Maximum room for evidence and policy detail.',
-    why: 'Killed it after the first usability pass. Reviewers work in streaks of 20+ calls; a route change per approval lost the queue, lost scroll position, and added a back-navigation to every decision. Two of five testers approved the wrong call after returning to a re-sorted list.',
-    keep: 'The evidence hierarchy — proposal, then policy, then consequences — survived intact into the drawer.',
+    claim: 'Send it to its own page. Loads of room.',
+    why: 'You lose your place. Come back and you have to work out which call you were even on. That is how you say yes to the wrong one.',
+    keep: 'I kept the order it put things in: what, why it stopped, what happens next.',
     wire: <Wire verdict="rejected">
-      <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bar(60, 5)}{bar('50%', 10)}
         <div style={{ height: 1, background: 'var(--border-subtle)' }} />
         {bar('100%', 26, 'var(--bg-inset)')}{bar('92%')}{bar('78%')}
         <span style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>{bar(30, 14)}{bar(54, 14, 'var(--signal-600)')}</div>
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>{bar(30, 14)}{bar(54, 14, 'var(--accent-bg)')}</div>
       </div>
     </Wire>,
   },
   {
-    name: 'B · Centre modal',
+    name: 'B · A box in the middle',
     verdict: 'rejected' as const,
-    claim: 'Classic confirm dialog. Cheap to build, familiar, keeps the operator in place.',
-    why: 'The modal has to cover the transcript to be readable at this density — and the transcript is the evidence. Operators kept dismissing it to re-check a quote, then re-opening it, losing the amount they had typed. A confirm dialog is the right shape for a decision you have already made; this is a decision being made.',
-    keep: 'Reserved the modal for genuinely evidence-free confirmations: bulk-approve, and discarding an edited draft.',
+    claim: 'A pop-up in the middle. Everyone knows how these work.',
+    why: 'It sits on top of the call — and the call is your proof. You would shut it to re-read one line, and lose everything you had typed.',
+    keep: 'I kept pop-ups for plain yes-or-no questions, where there is nothing to read.',
     wire: <Wire verdict="rejected">
       <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, filter: 'blur(1.2px)', opacity: .45 }}>
         {bar('72%')}{bar('58%')}{bar('80%')}{bar('64%')}{bar('76%')}
       </div>
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '72%', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, boxShadow: 'var(--shadow-3)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '72%', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-3)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bar('56%', 7)}{bar('100%')}{bar('84%')}
-        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', marginTop: 4 }}>{bar(26, 12)}{bar(44, 12, 'var(--signal-600)')}</div>
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', marginTop: 4 }}>{bar(26, 12)}{bar(44, 12, 'var(--accent-bg)')}</div>
       </div>
     </Wire>,
   },
   {
-    name: 'C · Right drawer',
+    name: 'C · Slides in from the side',
     verdict: 'shipped' as const,
-    claim: 'Slide over the inspector, leave the transcript visible. Commit controls pinned to a footer.',
-    why: 'The only option where the operator can read the quote that justifies the refund while typing the refund amount. It also gave the approval a real footer — “Approve $89.40” instead of “OK” — which testers read aloud before clicking. Cost: 468px of width, so the transcript column has a hard 520px minimum and the app declares a 1280px floor.',
+    claim: 'Slides in from the right. You can still see the call.',
+    why: 'You can read what they said while you type the amount. And the button says the actual money — “Approve $89.40”, never just “OK”. The catch: it eats a lot of width, so this needs a big screen.',
     keep: null,
     wire: <Wire verdict="shipped">
       <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bar('72%')}{bar('58%')}{bar('80%')}{bar('64%')}{bar('76%')}{bar('52%')}
       </div>
-      <div style={{ width: '46%', borderLeft: '1px solid var(--border-default)', background: 'var(--bg-surface)', boxShadow: '-8px 0 24px -12px rgba(0,0,0,.3)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ width: '46%', borderLeft: '1px solid var(--border-default)', background: 'var(--bg-surface)', boxShadow: 'var(--shadow-3)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bar('64%', 7)}{bar('100%', 22, 'var(--bg-inset)')}{bar('100%', 16, 'var(--danger-bg)')}
         <span style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>{bar(24, 12)}{bar(52, 12, 'var(--signal-600)')}</div>
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>{bar(24, 12)}{bar(52, 12, 'var(--accent-bg)')}</div>
       </div>
     </Wire>,
   },
 ]
 
+/* A specimen strip: the actual control, drawn at real size, above the sentence
+   explaining it. Reading "a colour beats a number" is an assertion; seeing
+   0.52 next to the pill settles it in about a second. */
+const Demo = ({ children }: { children: ReactNode }) => (
+  <div className="diff-demo">{children}</div>
+)
+
+const line = (w: string, c = 'var(--border-default)') => (
+  <div style={{ width: w, height: 6, borderRadius: 'var(--radius-2xs)', background: c }} />
+)
+
 const OTHERS = [
   {
-    t: 'Showing raw probabilities (0.52) instead of bands',
-    rejected: 'Operators anchored on the number and started negotiating with it — “0.52 is basically half, that’s fine”. Two decimals implied a precision the extractor does not have.',
-    shipped: 'Three bands with one hue each, plus the number as secondary text inside the pill. Read the colour, confirm with the digit.',
+    t: 'Showing the plain number, 0.52',
+    badVis: <Demo><span className="mono" style={{ color: 'var(--fg-secondary)' }}>damage type&nbsp;&nbsp;0.52</span></Demo>,
+    goodVis: <Demo><span className="mono" style={{ color: 'var(--fg-secondary)' }}>damage type</span><ConfidencePill score={0.52} /></Demo>,
+    rejected: 'A number starts an argument. “0.52 is about half, that is fine.” A colour does not.',
+    chosen: 'Colour first, number second. You see the colour, then check the number.',
   },
   {
-    t: 'Auto-selecting the highest-confidence value on conflict',
-    rejected: 'Tested with a 0.61 vs 0.58 conflict. Every tester approved the pre-selected answer without reading the alternative. A near-tie is not a winner.',
-    shipped: 'Present both with citations and no default. The one moment where adding a click is the correct call.',
+    t: 'Picking the higher score when two answers disagree',
+    badVis: <Demo>
+      <Button size="sm" variant="primary" icon="check">Thu 22 Aug</Button>
+      <span style={{ fontSize: 'var(--text-xs)', lineHeight: 'var(--lh-xs)', color: 'var(--fg-disabled)' }}>Fri 23 Aug</span>
+    </Demo>,
+    goodVis: <Demo>
+      <Button size="sm" variant="secondary">Thu 22 Aug</Button>
+      <ConfidencePill score={0.61} />
+      <Button size="sm" variant="secondary">Fri 23 Aug</Button>
+      <ConfidencePill score={0.58} />
+    </Demo>,
+    rejected: '61% against 58% is a tie, not a winner. Picking one for you hides that it was close.',
+    chosen: 'Show both, choose neither. The one place an extra click is the right answer.',
   },
   {
-    t: 'A single “Approve all” for the whole queue',
-    rejected: 'It is what operators asked for, and it recreated exactly the rubber-stamping the project existed to fix.',
-    shipped: 'Bulk approve exists but excludes any call with a low-confidence field or a gated money action. It clears the boring 70% and refuses to clear the rest.',
+    t: 'One button that says yes to everything',
+    badVis: <Demo><Button size="sm" variant="primary" icon="check">Approve all 12</Button></Demo>,
+    goodVis: <Demo>
+      <Button size="sm" variant="primary" icon="check">Approve 8 safe</Button>
+      <Badge tone="warning">4 need you</Badge>
+    </Demo>,
+    rejected: 'Everyone asks for it. It brings straight back the not-really-looking that this screen exists to stop.',
+    chosen: 'It clears the easy ones. It flatly refuses the shaky ones.',
   },
   {
-    t: 'Confidence colour on the transcript text itself',
-    rejected: 'Colouring every agent turn by ASR confidence turned the transcript into a heat map. Nothing stood out because everything was tinted.',
-    shipped: 'Only spans below the floor get the dashed underline. Roughly one per call — which is what makes it worth looking at.',
+    t: 'Colouring the whole call by how sure it is',
+    badVis: <Demo>
+      <div className="col" style={{ gap: 'var(--space-3)', width: '100%' }}>
+        <div style={{ background: 'var(--conf-high-bg)', padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-xs)' }}>{line('86%', 'var(--conf-high-solid)')}</div>
+        <div style={{ background: 'var(--conf-medium-bg)', padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-xs)' }}>{line('64%', 'var(--conf-medium-solid)')}</div>
+        <div style={{ background: 'var(--conf-low-bg)', padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-xs)' }}>{line('74%', 'var(--conf-low-solid)')}</div>
+      </div>
+    </Demo>,
+    goodVis: <Demo>
+      <div className="col" style={{ gap: 'var(--space-4)', width: '100%', padding: 'var(--space-2) var(--space-3)' }}>
+        {line('86%')}
+        {/* The dash needs air under the bar or it reads as part of it. */}
+        <span className="turn-uncertain" style={{ display: 'block', width: '64%', paddingBottom: 'var(--space-2)' }}>{line('100%')}</span>
+        {line('74%')}
+      </div>
+    </Demo>,
+    rejected: 'It turns into a rainbow. Colour everything and nothing stands out.',
+    chosen: 'Only the shaky bits get a dotted underline. About one per call.',
   },
 ]
 
 export function Tradeoffs() {
   return (
-    <div className="doc" style={{ maxWidth: 1240 }}>
-      <h1 style={{ fontSize: 'var(--text-3xl)', lineHeight: 'var(--lh-3xl)' }}>Trade-offs &amp; rejected concepts</h1>
-      <p className="lede" style={{ marginTop: 'var(--space-5)' }}>
-        The approval surface was the contested decision. Three options went into testing with five support
-        operators; here is what each cost and why the drawer won.
+    <div className="doc doc--sub">
+      <h1>Three ways to ask permission. I kept one.</h1>
+      <p className="lede">
+The two I threw away are the part worth reading.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-8)', marginTop: 'var(--space-10)' }}>
+      <div className="doc-grid-3 doc-block">
         {OPTIONS.map(o => (
           <div key={o.name} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-            <div style={{ fontSize: 'var(--text-base)', fontWeight: 600, letterSpacing: 'var(--tracking-snug)' }}>{o.name}</div>
+            <div style={{ fontSize: 'var(--text-base)', lineHeight: 'var(--lh-base)', fontWeight: 'var(--weight-semibold)', letterSpacing: 'var(--tracking-snug)' }}>{o.name}</div>
             {o.wire}
             <p style={{ fontSize: 'var(--text-md)', lineHeight: 'var(--lh-md)', color: 'var(--fg-primary)' }}>{o.claim}</p>
             <div>
@@ -119,7 +163,7 @@ export function Tradeoffs() {
             </div>
             {o.keep && (
               <div className="eventline" data-tone="info">
-                <Icon name="undo" size={13} />
+                <Icon name="undo" size={14} />
                 <span>{o.keep}</span>
               </div>
             )}
@@ -127,34 +171,29 @@ export function Tradeoffs() {
         ))}
       </div>
 
-      <h2>Four smaller calls I had to defend</h2>
-      <div style={{ marginTop: 'var(--space-7)', display: 'grid', gap: 'var(--space-6)' }}>
+      <h2>Four smaller choices</h2>
+      <p>Same idea, smaller. What I tried, and what I did instead.</p>
+      <div className="doc-stack">
         {OTHERS.map(o => (
           <div key={o.t} style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-surface)', overflow: 'hidden' }}>
-            <div style={{ padding: 'var(--space-6) var(--space-7)', borderBottom: '1px solid var(--border-subtle)', fontSize: 'var(--text-base)', fontWeight: 600 }}>{o.t}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-              <div style={{ padding: 'var(--space-6) var(--space-7)', borderRight: '1px solid var(--border-subtle)' }}>
-                <div className="row" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}><Icon name="xCircle" size={13} style={{ color: 'var(--danger-fg)' }} /><span className="section-label">Rejected</span></div>
+            <div style={{ padding: 'var(--space-6) var(--space-7)', borderBottom: '1px solid var(--border-subtle)', fontSize: 'var(--text-base)', lineHeight: 'var(--lh-base)', fontWeight: 'var(--weight-semibold)' }}>{o.t}</div>
+            <div className="pairgrid">
+              <div className="pairgrid-cell">
+                <div className="row" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}><Icon name="xCircle" size={14} style={{ color: 'var(--danger-fg)' }} /><span className="section-label">Rejected</span></div>
+                {o.badVis}
                 <p style={{ fontSize: 'var(--text-md)', lineHeight: 'var(--lh-md)' }}>{o.rejected}</p>
               </div>
-              <div style={{ padding: 'var(--space-6) var(--space-7)' }}>
-                <div className="row" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}><Icon name="checkCircle" size={13} style={{ color: 'var(--success-solid)' }} /><span className="section-label">Shipped</span></div>
-                <p style={{ fontSize: 'var(--text-md)', lineHeight: 'var(--lh-md)' }}>{o.shipped}</p>
+              <div className="pairgrid-cell">
+                <div className="row" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}><Icon name="checkCircle" size={14} style={{ color: 'var(--success-solid)' }} /><span className="section-label">Chosen</span></div>
+                {o.goodVis}
+                <p style={{ fontSize: 'var(--text-md)', lineHeight: 'var(--lh-md)' }}>{o.chosen}</p>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      <h2>What I would do next</h2>
-      <p style={{ marginTop: 'var(--space-5)' }}>
-        The drawer is right for one gated action. Three or more in a single call — which happens on ~4% of
-        traffic — makes it a queue inside a queue, and the footer stops being honest about what “Approve”
-        commits to. The next iteration batches gated actions into one reviewable set with a single commit,
-        and I would want the confidence bands re-calibrated per policy rather than shared globally.
-      </p>
-
-      <div className="row" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-10)' }}>
+      <div className="doc-next">
         <SectionLabel>Next</SectionLabel>
         <span className="grow" />
         <Button variant="primary" iconEnd="arrowRight" onClick={() => (window.location.hash = 'system')}>The design system</Button>
