@@ -48,7 +48,11 @@ export function Context() {
                   never be the first thing on the landing page. */}
               <img
                 className="contact-photo"
-                src="/alvin.jpg"
+                /* BASE_URL, not a leading slash. This deploys to a project
+                   page at /voice-agent-prototype/, where "/alvin.jpg" resolves
+                   against the DOMAIN root and 404s — and the onError below then
+                   hid it silently, so it worked locally and vanished live. */
+                src={`${import.meta.env.BASE_URL}alvin.jpg`}
                 alt="Alvin Thong"
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
               />
