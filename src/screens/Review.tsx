@@ -4,6 +4,8 @@ import {
   Kbd, SectionLabel, Segmented, Avatar, Skeleton, EmptyState, band, type Tone,
 } from '../ds'
 import { ProductShell, PageHeader, useMinWidth } from '../app/ProductShell'
+import { CoachMarks } from './variants/CoachMarks'
+import { CORE_STEPS } from './coachSteps'
 import { queue, queueCounts, byId, type Field, type Turn, type Proposal, type Call } from '../data/fixtures'
 
 /* ---------- waveform ----------
@@ -286,8 +288,13 @@ function ApproveDrawer({ call, gated, onClose, onConfirm }: { call: Call; gated:
 }
 
 /* ---------- screen ---------- */
-export function Review() {
+/* `coach` is set only by chapter 3. Chapter 4 mounts this very same screen as
+   layout A and wants no marks on it — the comparison is the point there, and
+   the walkthrough already happened a chapter earlier. */
+export function Review({ coach = false }: { coach?: boolean } = {}) {
   const [selected, setSelected] = useState('C-48219')
+  const [coachMode, setCoachMode] = useState<'off' | 'pins' | 'tour'>('pins')
+  const [invite, setInvite] = useState(true)
   const call = byId(selected)
 
   const [progress, setProgress] = useState(0.42)
@@ -364,6 +371,18 @@ export function Review() {
     return call.duration === '—' ? 0 : m * 60 + s
   })()
   const at = Math.floor(progress * seconds)
+
+  /* Same two keys the explorer used, now that the tour lives here. */
+  useEffect(() => {
+    if (!coach) return
+    const h = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === '?') { setCoachMode('tour'); setInvite(false) }
+      if (e.key.toLowerCase() === 'h') setCoachMode(m => (m === 'off' ? 'pins' : 'off'))
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [coach])
 
   const approve = (amt?: string) => {
     setDrawer(false)
@@ -616,7 +635,7 @@ export function Review() {
             </div>
 
             <div className="insp-section">
-              <div className="insp-head">
+              <div className="insp-head" data-coach="log">
                 <Icon name="clock" size={16} style={{ color: 'var(--fg-tertiary)' }} />
                 <span className="card-title grow">Log</span>
                 <IconButton className="tip-end" icon="external" size="sm" tip="Open full log" />
@@ -665,6 +684,33 @@ export function Review() {
 
       {drawer && gated && (
         <ApproveDrawer call={call} gated={gated} onClose={() => setDrawer(false)} onConfirm={amt => approve(amt)} />
+      )}
+
+      {coach && invite && coachMode !== 'tour' && (
+        <div className="explorer-float tour-invite">
+          <Icon name="sparkle" size={14} />
+          <span className="tour-invite-copy">First time here? Take the 30-second tour.</span>
+          <Button size="sm" variant="primary" onClick={() => { setCoachMode('tour'); setInvite(false) }}>
+            Show me around
+          </Button>
+          <IconButton icon="x" size="sm" aria-label="Dismiss" onClick={() => setInvite(false)} />
+        </div>
+      )}
+
+      {coach && (
+        <CoachMarks
+          steps={CORE_STEPS}
+          mode={coachMode}
+          onExit={() => setCoachMode('pins')}
+          onMode={setCoachMode}
+        />
+      )}
+
+      {coach && coachMode === 'pins' && (
+        <div className="explorer-float pins-hint">
+          <span className="coach-mark" style={{ position: 'static', transform: 'none', width: 'var(--control-h-2xs)', height: 'var(--control-h-2xs)', boxShadow: 'none' }}>1</span>
+          Click a numbered dot, or <Kbd>?</Kbd> for the tour · <Kbd>H</Kbd> hides these
+        </div>
       )}
 
       {toast && (

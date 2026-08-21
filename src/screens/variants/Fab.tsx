@@ -32,8 +32,6 @@ export function Fab({ prefs, set, attention }: { prefs: Prefs; set: (p: Partial<
       }
       if (k === 'd') set({ density: prefs.density === 'compact' ? 'comfortable' : 'compact' })
       if (k === 't') set({ theme: prefs.theme === 'dark' ? 'light' : 'dark' })
-      if (k === 'h') set({ coach: prefs.coach === 'pins' ? 'off' : 'pins' })
-      if (k === '?') set({ coach: 'tour' })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -83,7 +81,6 @@ export function Fab({ prefs, set, attention }: { prefs: Prefs; set: (p: Partial<
             {[
               { label: 'Tighter rows', k: 'D', on: prefs.density === 'compact', set: (v: boolean) => set({ density: v ? 'compact' : 'comfortable' }) },
               { label: 'Dark', k: 'T', on: prefs.theme === 'dark', set: (v: boolean) => set({ theme: v ? 'dark' : 'light' }) },
-              { label: 'Show hints', k: 'H', on: prefs.coach !== 'off', set: (v: boolean) => set({ coach: v ? 'pins' : 'off' }) },
             ].map(row => (
               <div className="fab-row" key={row.label}>
                 <span className="row" style={{ gap: 'var(--space-4)', fontSize: 'var(--text-md)', lineHeight: 'var(--lh-md)' }}>{row.label}<Kbd>{row.k}</Kbd></span>
@@ -93,10 +90,7 @@ export function Fab({ prefs, set, attention }: { prefs: Prefs; set: (p: Partial<
           </div>
 
           <div className="fab-sec">
-            <Button variant="secondary" icon="sparkle" style={{ width: '100%' }} onClick={() => { set({ coach: 'tour' }); setOpen(false) }}>
-              Show me around<Kbd>?</Kbd>
-            </Button>
-            <div className="row" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
+            <div className="row" style={{ gap: 'var(--space-3)' }}>
               <Badge tone="neutral">Relay DS</Badge>
               <span style={{ fontSize: 'var(--text-xs)', lineHeight: 'var(--lh-xs)', color: 'var(--fg-tertiary)' }}>same tokens &amp; components in all three</span>
             </div>

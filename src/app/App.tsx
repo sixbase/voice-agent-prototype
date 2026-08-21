@@ -15,7 +15,7 @@ import { System } from '../screens/System'
 const CHAPTERS = [
   { id: 'context',   label: 'Context',            blurb: 'The pitch in thirty seconds, and the three rules behind it.', el: Context },
   { id: 'flow',      label: 'End-to-end flow',    blurb: 'Six steps, and the four handoffs that were the hard part.',  el: Flow },
-  { id: 'core',      label: 'Core screen',        blurb: 'The real screen, full size. Have a click around.', el: Review },
+  { id: 'core',      label: 'Core screen',        blurb: 'The real screen, full size. Take the tour or click around.', el: () => <Review coach /> },
   { id: 'variants',  label: 'Variants',           blurb: 'Three ways to build the same screen. Swap them bottom right.', el: Variants },
   { id: 'states',    label: 'Every way it can go', blurb: 'Eighteen states. Not sure, still loading, not allowed, broken.', el: States },
   { id: 'tradeoffs', label: 'Trade-offs',         blurb: 'Three ways to ask permission, and why I kept the third.',           el: Tradeoffs },
